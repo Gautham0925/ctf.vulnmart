@@ -23,13 +23,13 @@ Defined only in `backend/app/core/flags_config.py`. Validation happens on the ex
 
 **LAB-02** `POST /api/auth/forgot-password`: 404 vs 200 reveals accounts. Hidden `ops.recovery` returns `recovery_ticket` (flag). Fix: identical response and async mail.
 
-**LAB-03** `GET /api/orders/{id}` has no ownership check. Iterate ids; the order whose `gift_message` holds the flag belongs to carol.nguyen. Invoices (`/api/invoices/{id}`) have the same flaw. Fix: filter by `user_id`.
+**LAB-03** `GET /api/orders/{id}` has no ownership check. Iterate ids; the order whose `gift_message` holds the flag belongs to tarun.shop. Invoices (`/api/invoices/{id}`) have the same flaw. Fix: filter by `user_id`.
 
 **LAB-04** Log in, keep the refresh token, log out (or change password), then `POST /api/auth/refresh`. Training mode accepts it and returns `session_audit.reference` (flag). Fix: revoke sessions and refresh tokens on logout and password change, rotate on use.
 
 **LAB-05** `PATCH /api/users/me {"role":"admin"}` (mass assignment), sign in again, call `GET /api/admin/overview`; `compliance_banner` carries the flag. Fix: allowlisted fields, role from server state.
 
-**LAB-06** `GET /api/users/{id}/addresses` trusts the path id. erin.kowalski's Office address `delivery_notes` holds the flag. Fix: use the token identity.
+**LAB-06** `GET /api/users/{id}/addresses` trusts the path id. rakshith.shop's Office address `delivery_notes` holds the flag. Fix: use the token identity.
 
 **LAB-07** `/legacy/search?q=<img src=x onerror=alert(document.cookie)>`; cookie `vm_lab07` (URL-encoded) holds the flag; decode it. Fix: HTML-encode output, CSP.
 
@@ -41,7 +41,7 @@ Defined only in `backend/app/core/flags_config.py`. Validation happens on the ex
 
 **LAB-11** Fetch `/api/auth/public-key.pem` (exact bytes), forge an HS256 token (`sub`=1, `role`=admin, valid `iss`, `aud`, `exp`) using the PEM as the HMAC secret, call `GET /api/admin/vault`; `key_audit` holds the flag. Fix: pinned `algorithms=["RS256"]`, typed keys (secure verifier already does this).
 
-**LAB-12** Log in as grace.holt; the response contains `partial_token` only. `GET /api/cart` returns 403, but `GET /api/account/security-overview` accepts the partial token and returns `partial_session_notice` (flag). Fix: require stage `full` everywhere except `/api/auth/verify-otp` (secure mode does).
+**LAB-12** Log in as shika.shop; the response contains `partial_token` only. `GET /api/cart` returns 403, but `GET /api/account/security-overview` accepts the partial token and returns `partial_session_notice` (flag). Fix: require stage `full` everywhere except `/api/auth/verify-otp` (secure mode does).
 
 ## Delivery caveat
 XSS flags are delivered through lab-scoped, non-HttpOnly cookies because the server cannot observe client-side script execution. They are only emitted on training-mode requests and, for LAB-07/LAB-08, only when markup is present in the payload; a participant reading raw `Set-Cookie` headers can see them without running script. Treat these three as instructor-verifiable.

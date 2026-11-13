@@ -12,7 +12,7 @@ from app import config, flags, security
 from app.models import Announcement, AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, ObjectiveEvent, Participant, Resource, ReservedUsername, Score, Solve, Submission, now
 
 BASE_RESERVED = ["admin", "administrator", "organizer", "organiser", "root", "system", "support", "staff", "moderator", "flagdesk", "vulnmart", "vulnmarket", "ctf", "api", "null", "undefined"]
-VULNMART_PERSONAS = ["admin", "ops.admin", "techhub", "stylehouse", "homenest", "pagebarn", "alice.morgan", "bob.carter", "carol.nguyen", "david.okafor", "erin.kowalski", "frank.silva", "grace.holt", "vault.audit", "ops.recovery"]
+VULNMART_PERSONAS = ["admin", "ops.admin", "techhub", "stylehouse", "homenest", "pagebarn", "gautham.shop", "pavan.shop", "tarun.shop", "showrya.shop", "rakshith.shop", "shreya.shop", "shika.shop", "vault.audit", "ops.recovery"]
 
 
 def audit(db, action, actor=None, role="", target="", detail=None, ip=""):

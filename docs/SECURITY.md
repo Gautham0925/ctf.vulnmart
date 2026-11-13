@@ -32,7 +32,7 @@ All 36 original VulnMart tests still pass; the secure mode behaviour is unchange
 ## Known limitations (read these)
 
 1. **LAB-09 (DOM XSS)** cannot be detected server-side, so its flag cookie is issued when the promo page is opened by a signed-in participant, as in the original lab. A participant can read it without exploiting the DOM flaw.
-2. **Shared persona accounts.** The seeded shop personas (alice.morgan etc.) are shared by everyone who chooses to log into them. Labs 03 and 06 target other users' data, so this is fine; changing a persona's password can disturb others. Participants' own SSO shop accounts are private.
+2. **Shared persona accounts.** The seeded shop personas (gautham.shop etc.) are shared by everyone who chooses to log into them. Labs 03 and 06 target other users' data, so this is fine; changing a persona's password can disturb others. Participants' own SSO shop accounts are private.
 3. **Sentinel visibility.** A participant who exploits SQL injection (LAB-10) can read the other sentinel markers. A marker alone yields nothing: flags are produced by FlagDesk only after the server-side objective check, and user input containing the marker is rejected.
 4. **Organizer MFA** is TOTP; there is no recovery flow. Keep the secrets safe.
 5. **No TLS inside the Docker network.** Use the `https` profile (Caddy) or your own terminator at the edge.

@@ -46,7 +46,7 @@ def test_register_login_and_enumeration(client):
 
 def test_username_collisions_and_reserved(client):
     make_user(client, "Bob.Smith")
-    for name in ("bob.smith", "BOB.SMITH", "admin", "ops.admin", "alice.morgan", "org.alpha", "ORG.BETA", "organizer"):
+    for name in ("bob.smith", "BOB.SMITH", "admin", "ops.admin", "gautham.shop", "org.alpha", "ORG.BETA", "organizer"):
         r = TestClient(app).post("/api/register", json={"username": name, "password": "Password-123"}, headers=H)
         assert r.status_code == 409 and r.json()["detail"] == "That username is not available", name
 

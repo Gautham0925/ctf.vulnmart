@@ -19,7 +19,7 @@ def test_sentinels_are_distinct_and_not_flags():
 
 
 def test_no_flags_in_participant_catalog(client, training):
-    token = login(client, "alice.morgan")["access_token"]
+    token = login(client, "gautham.shop")["access_token"]
     body = client.get("/api/labs", headers=auth(token)).text
     assert "VULN{" not in body
     assert body.count("LAB-") >= 12
@@ -27,7 +27,7 @@ def test_no_flags_in_participant_catalog(client, training):
 
 def test_lab01_username_enumeration(client, training):
     unknown = client.post("/api/auth/login", json={"username": "nobody.here", "password": "x"})
-    known = client.post("/api/auth/login", json={"username": "alice.morgan", "password": "wrong"})
+    known = client.post("/api/auth/login", json={"username": "gautham.shop", "password": "wrong"})
     assert unknown.status_code == 404 and known.status_code == 401
     hidden = client.post("/api/auth/login", json={"username": "vault.audit", "password": "wrong"})
     assert hidden.json()["detail"]["audit_reference"] == EXPECTED["LAB-01"]
@@ -55,7 +55,7 @@ def test_lab02_secure(client, secure):
 
 
 def test_lab03_idor(client, training):
-    token = login(client, "alice.morgan")["access_token"]
+    token = login(client, "gautham.shop")["access_token"]
     found = None
     for oid in range(1, 40):
         r = client.get(f"/api/orders/{oid}", headers=auth(token))
@@ -68,7 +68,7 @@ def test_lab03_idor(client, training):
 
 
 def test_lab03_secure(client, secure):
-    token = login(client, "alice.morgan")["access_token"]
+    token = login(client, "gautham.shop")["access_token"]
     me = client.get("/api/users/me", headers=auth(token)).json()["id"]
     leaked = []
     for oid in range(1, 40):
@@ -79,34 +79,34 @@ def test_lab03_secure(client, secure):
 
 
 def test_lab04_refresh_after_logout(client, training):
-    tokens = login(client, "bob.carter")
+    tokens = login(client, "pavan.shop")
     client.post("/api/auth/logout", headers=auth(tokens["access_token"]))
     r = client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 200 and r.json()["session_audit"]["reference"] == EXPECTED["LAB-04"]
 
 
 def test_lab04_refresh_after_password_change(client, training):
-    tokens = login(client, "dave.patel")
+    tokens = login(client, "showrya.shop")
     ch = client.post("/api/auth/change-password", headers=auth(tokens["access_token"]), json={"current_password": PASSWORD, "new_password": "Changed#Pass2026"})
     assert ch.status_code == 200
     r = client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.json()["session_audit"]["reference"] == EXPECTED["LAB-04"]
-    again = client.post("/api/auth/login", json={"username": "dave.patel", "password": "Changed#Pass2026"})
+    again = client.post("/api/auth/login", json={"username": "showrya.shop", "password": "Changed#Pass2026"})
     client.post("/api/auth/change-password", headers=auth(again.json()["access_token"]), json={"current_password": "Changed#Pass2026", "new_password": PASSWORD})
 
 
 def test_lab04_secure(client, secure):
-    tokens = login(client, "carol.nguyen")
+    tokens = login(client, "tarun.shop")
     assert client.post("/api/auth/logout", headers=auth(tokens["access_token"])).status_code == 200
     assert client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]}).status_code == 401
     assert client.get("/api/users/me", headers=auth(tokens["access_token"])).status_code == 401
 
 
 def test_lab05_vertical_escalation(client, training):
-    token = login(client, "frank.osei")["access_token"]
+    token = login(client, "shreya.shop")["access_token"]
     assert client.get("/api/admin/overview", headers=auth(token)).status_code == 403
     assert client.patch("/api/users/me", headers=auth(token), json={"role": "admin"}).status_code == 200
-    token2 = login(client, "frank.osei")["access_token"]
+    token2 = login(client, "shreya.shop")["access_token"]
     r = client.get("/api/admin/overview", headers=auth(token2))
     assert r.status_code == 200 and r.json()["compliance_banner"] == EXPECTED["LAB-05"]
     legit = login(client, "admin", ADMIN_PASSWORD)["access_token"]
@@ -115,19 +115,19 @@ def test_lab05_vertical_escalation(client, training):
     from app.labs.reset import reset_lab
     with SessionLocal() as db:
         reset_lab(db, "LAB-05")
-    assert client.get("/api/admin/overview", headers=auth(login(client, "frank.osei")["access_token"])).status_code == 403
+    assert client.get("/api/admin/overview", headers=auth(login(client, "shreya.shop")["access_token"])).status_code == 403
 
 
 def test_lab05_secure(client, secure):
-    token = login(client, "erin.kowalski")["access_token"]
+    token = login(client, "rakshith.shop")["access_token"]
     client.patch("/api/users/me", headers=auth(token), json={"role": "admin"})
-    token2 = login(client, "erin.kowalski")["access_token"]
+    token2 = login(client, "rakshith.shop")["access_token"]
     assert client.get("/api/admin/overview", headers=auth(token2)).status_code == 403
     assert client.get("/api/users/me", headers=auth(token2)).json()["role"] == "customer"
 
 
 def test_lab06_horizontal(client, training):
-    token = login(client, "alice.morgan")["access_token"]
+    token = login(client, "gautham.shop")["access_token"]
     me = client.get("/api/users/me", headers=auth(token)).json()["id"]
     hits = []
     for uid in range(1, 30):
@@ -140,7 +140,7 @@ def test_lab06_horizontal(client, training):
 
 
 def test_lab06_secure(client, secure):
-    token = login(client, "alice.morgan")["access_token"]
+    token = login(client, "gautham.shop")["access_token"]
     me = client.get("/api/users/me", headers=auth(token)).json()["id"]
     codes = {client.get(f"/api/users/{uid}/addresses", headers=auth(token)).status_code for uid in range(1, 25) if uid != me}
     assert codes == {403}
@@ -163,9 +163,9 @@ def test_lab08_stored_xss(client, training):
     from tests.conftest import SessionLocal, TEST_PARTICIPANT
     from app.models import User
     with SessionLocal() as db:
-        db.query(User).filter(User.username == "bob.carter").update({"identity_uuid": TEST_PARTICIPANT})
+        db.query(User).filter(User.username == "pavan.shop").update({"identity_uuid": TEST_PARTICIPANT})
         db.commit()
-    token = login(client, "bob.carter")["access_token"]
+    token = login(client, "pavan.shop")["access_token"]
     payload = '<img src=x onerror=alert(document.cookie)>'
     assert client.post("/api/reviews", headers=auth(token), json={"product_id": 3, "rating": 4, "title": "t", "body": payload}).status_code == 201
     r = client.get("/api/products/3/reviews")
@@ -178,7 +178,7 @@ def test_lab08_stored_xss(client, training):
         other.cookies.set("vm_sso", sso_cookie("22222222-2222-4222-8222-222222222222", "someone.else"))
         assert "vm_lab08" not in other.get("/api/products/3/reviews").headers.get("set-cookie", "")
     with SessionLocal() as db:
-        db.query(User).filter(User.username == "bob.carter").update({"identity_uuid": None})
+        db.query(User).filter(User.username == "pavan.shop").update({"identity_uuid": None})
         db.commit()
     from app.labs.reset import reset_lab
     with SessionLocal() as db:
@@ -187,7 +187,7 @@ def test_lab08_stored_xss(client, training):
 
 
 def test_lab08_secure(client, secure):
-    token = login(client, "bob.carter")["access_token"]
+    token = login(client, "pavan.shop")["access_token"]
     payload = '<img src=x onerror=alert(1)>'
     client.post("/api/reviews", headers=auth(token), json={"product_id": 4, "rating": 4, "title": "t", "body": payload})
     r = client.get("/api/products/4/reviews")
@@ -250,7 +250,7 @@ def test_lab11_secure(client, secure):
 
 
 def test_lab12_half_open_auth(client, training):
-    step1 = client.post("/api/auth/login", json={"username": "grace.holt", "password": PASSWORD}).json()
+    step1 = client.post("/api/auth/login", json={"username": "shika.shop", "password": PASSWORD}).json()
     assert step1["mfa_required"] is True and "access_token" not in step1
     partial = step1["partial_token"]
     assert client.get("/api/cart", headers=auth(partial)).status_code == 403
@@ -259,7 +259,7 @@ def test_lab12_half_open_auth(client, training):
 
 
 def test_lab12_secure_and_otp_flow(client, secure):
-    step1 = client.post("/api/auth/login", json={"username": "grace.holt", "password": PASSWORD}).json()
+    step1 = client.post("/api/auth/login", json={"username": "shika.shop", "password": PASSWORD}).json()
     partial = step1["partial_token"]
     assert client.get("/api/account/security-overview", headers=auth(partial)).status_code == 403
     assert client.get("/api/cart", headers=auth(partial)).status_code == 403
@@ -267,7 +267,7 @@ def test_lab12_secure_and_otp_flow(client, secure):
     from app.models import SimulatedEmail
     import re
     with SessionLocal() as db:
-        mail = db.query(SimulatedEmail).filter(SimulatedEmail.to_address == "grace.holt@example.com").order_by(SimulatedEmail.id.desc()).first()
+        mail = db.query(SimulatedEmail).filter(SimulatedEmail.to_address == "shika.shop@example.com").order_by(SimulatedEmail.id.desc()).first()
     code = re.search(r"(\d{6})", mail.body).group(1)
     bad = client.post("/api/auth/verify-otp", headers=auth(partial), json={"challenge_id": step1["challenge_id"], "code": "000000" if code != "000000" else "111111"})
     assert bad.status_code == 401

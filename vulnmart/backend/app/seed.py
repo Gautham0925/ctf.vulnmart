@@ -26,19 +26,19 @@ CATEGORIES = [
 
 SELLERS = [
     ("techhub", "TechHub Electronics", "techhub@vulnmarket.local", "Priya Raman"),
-    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Marcus Bell"),
+    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Arjun Menon"),
     ("homenest", "HomeNest Living", "homenest@vulnmarket.local", "Ananya Rao"),
-    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Tom Fischer"),
+    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Vikram Shetty"),
 ]
 
 CUSTOMERS = [
-    ("alice.morgan", "Alice Morgan", "alice.morgan@example.com", False),
-    ("bob.carter", "Bob Carter", "bob.carter@example.com", False),
-    ("carol.nguyen", "Carol Nguyen", "carol.nguyen@example.com", False),
-    ("dave.patel", "Dave Patel", "dave.patel@example.com", False),
-    ("erin.kowalski", "Erin Kowalski", "erin.kowalski@example.com", False),
-    ("frank.osei", "Frank Osei", "frank.osei@example.com", False),
-    ("grace.holt", "Grace Holt", "grace.holt@example.com", True),
+    ("gautham.shop", "Gautham Kini", "gautham.shop@example.com", False),
+    ("pavan.shop", "Pavan Shetty", "pavan.shop@example.com", False),
+    ("tarun.shop", "Tarun Gowda", "tarun.shop@example.com", False),
+    ("showrya.shop", "Showrya Hegde", "showrya.shop@example.com", False),
+    ("rakshith.shop", "Rakshith Bhat", "rakshith.shop@example.com", False),
+    ("shreya.shop", "Shreya Nayak", "shreya.shop@example.com", False),
+    ("shika.shop", "Shika Pai", "shika.shop@example.com", True),
     ("vault.audit", "Vault Audit", "vault.audit@vulnmarket.local", False),
     ("ops.recovery", "Ops Recovery", "ops.recovery@vulnmarket.local", False),
 ]
@@ -149,13 +149,35 @@ def seed(db: Session):
         users[username] = u
     db.flush()
 
-    cities = [("Bengaluru", "Karnataka", "560037"), ("Mumbai", "Maharashtra", "400051"), ("Chennai", "Tamil Nadu", "600042"), ("Pune", "Maharashtra", "411045"), ("Hyderabad", "Telangana", "500081"), ("Kochi", "Kerala", "682016")]
+    homes = [
+        ("No. 42, 3rd Cross, Vijayanagar", "Bengaluru", "Karnataka", "560040"),
+        ("Flat 204, Sai Residency, Hinjewadi Phase 1", "Pune", "Maharashtra", "411057"),
+        ("14/2, Gandhi Road, Kodialbail", "Mangaluru", "Karnataka", "575003"),
+        ("No. 7, 5th Main, Jayanagar 4th Block", "Bengaluru", "Karnataka", "560011"),
+        ("Plot 31, Road No. 5, Banjara Hills", "Hyderabad", "Telangana", "500034"),
+        ("12, Lakshmi Nagar, Adyar", "Chennai", "Tamil Nadu", "600020"),
+        ("TC 25/1138, Pallam Road", "Kasaragod", "Kerala", "671121"),
+        ("No. 88, 80 Feet Road, Koramangala", "Bengaluru", "Karnataka", "560034"),
+        ("B-12, Shivaji Park Society, Dadar", "Mumbai", "Maharashtra", "400028"),
+    ]
+    offices = [
+        ("Prestige Tech Park, Outer Ring Road, Marathahalli", "Bengaluru", "Karnataka", "560103"),
+        ("Magarpatta City, Hadapsar", "Pune", "Maharashtra", "411013"),
+        ("KIADB Industrial Area, Bikkernakatte", "Mangaluru", "Karnataka", "575002"),
+        ("Embassy Manyata Business Park, Nagawara", "Bengaluru", "Karnataka", "560045"),
+        ("Raheja Mindspace, HITEC City, Madhapur", "Hyderabad", "Telangana", "500081"),
+        ("DLF IT Park, Manapakkam", "Chennai", "Tamil Nadu", "600089"),
+        ("Infopark Phase 1, Kakkanad", "Kochi", "Kerala", "682042"),
+        ("Bagmane Tech Park, CV Raman Nagar", "Bengaluru", "Karnataka", "560093"),
+        ("Bandra Kurla Complex, Bandra East", "Mumbai", "Maharashtra", "400051"),
+    ]
     for i, (username, fullname, _e, _m) in enumerate(CUSTOMERS):
         user = users[username]
-        city, state, pin = cities[i % len(cities)]
-        db.add(Address(user_id=user.id, label="Home", recipient=fullname, line1=f"{12 + i}, Lakeview Residency, 4th Cross", city=city, state=state, postal_code=pin, delivery_notes="Leave with security if not home", is_default=True))
-        extra_note = sentinel("LAB-06") if username == "erin.kowalski" else "Call before delivery"
-        db.add(Address(user_id=user.id, label="Office", recipient=fullname, line1=f"Tower {2 + i}, Tech Park Road", city=city, state=state, postal_code=pin, delivery_notes=extra_note))
+        hl, hc, hs, hp = homes[i % len(homes)]
+        ol, oc, os_, op = offices[i % len(offices)]
+        db.add(Address(user_id=user.id, label="Home", recipient=fullname, line1=hl, city=hc, state=hs, postal_code=hp, delivery_notes="Leave with security if not home", is_default=True))
+        extra_note = sentinel("LAB-06") if username == "rakshith.shop" else "Call before delivery"
+        db.add(Address(user_id=user.id, label="Office", recipient=fullname, line1=ol, city=oc, state=os_, postal_code=op, delivery_notes=extra_note))
         db.add(Cart(user_id=user.id))
 
     products = []
@@ -199,7 +221,7 @@ def seed(db: Session):
             shipping = 0.0 if subtotal > 1500 else 79.0
             total = round(subtotal - disc + shipping, 2)
             gift = ""
-            if cu.username == "carol.nguyen" and k == 0:
+            if cu.username == "tarun.shop" and k == 0:
                 gift = sentinel("LAB-03")
             addr = db.query(Address).filter(Address.user_id == cu.id, Address.is_default.is_(True)).first()
             order = Order(order_number=f"VM{order_no}", user_id=cu.id, status=rng.choice(["placed", "shipped", "delivered", "delivered"]), subtotal=round(subtotal, 2), discount=round(disc, 2), shipping=shipping, total=total, payment_method=rng.choice(["upi", "card", "cod"]), shipping_address={"recipient": addr.recipient, "line1": addr.line1, "city": addr.city, "state": addr.state, "postal_code": addr.postal_code}, gift_message=gift, created_at=ts + timedelta(days=10 + idx * 3 + k))

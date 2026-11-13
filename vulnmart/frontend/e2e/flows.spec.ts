@@ -11,7 +11,7 @@ async function signIn(page: Page, u: string, p: string) {
 const flag = async (page: Page, name: string) => decodeURIComponent((await page.context().cookies()).find((c) => c.name === name)?.value ?? "");
 
 test("customer can shop end to end", async ({ page }) => {
-  await signIn(page, "erin.kowalski", "Shop#Pass2026");
+  await signIn(page, "rakshith.shop", "Shop#Pass2026");
   await page.goto("/products/3");
   await page.getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/cart");
@@ -39,7 +39,7 @@ test("dom xss executes in browser (training)", async ({ page }) => {
 });
 
 test("stored xss executes for another viewer and moderation hides it", async ({ page, browser }) => {
-  await signIn(page, "bob.carter", "Shop#Pass2026");
+  await signIn(page, "pavan.shop", "Shop#Pass2026");
   await page.goto("/products/5");
   await page.fill("#rbody", "<img src=x onerror=xssFired()>");
   await page.getByRole("button", { name: "Submit review" }).click();

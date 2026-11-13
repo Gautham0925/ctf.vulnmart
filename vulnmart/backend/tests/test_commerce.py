@@ -22,7 +22,7 @@ def test_catalog_browse_and_filters(client, training):
 
 
 def test_cart_checkout_order_invoice(client, training):
-    token = login(client, "erin.kowalski")["access_token"]
+    token = login(client, "rakshith.shop")["access_token"]
     h = auth(token)
     assert client.post("/api/cart/items", headers=h, json={"product_id": 1, "quantity": 2}).status_code == 201
     assert client.post("/api/cart/items", headers=h, json={"product_id": 12, "quantity": 1}).status_code == 201
@@ -38,12 +38,12 @@ def test_cart_checkout_order_invoice(client, training):
     assert any(x["id"] == o["id"] for x in client.get("/api/orders", headers=h).json())
     inv = client.get(f"/api/invoices/{o['invoice_id']}", headers=h).json()
     assert inv["total"] == o["total"]
-    foreign_address = client.get("/api/users/me/addresses", headers=auth(login(client, "bob.carter")["access_token"])).json()[0]["id"]
+    foreign_address = client.get("/api/users/me/addresses", headers=auth(login(client, "pavan.shop")["access_token"])).json()[0]["id"]
     assert client.post("/api/orders/checkout", headers=h, json={"address_id": foreign_address, "payment_method": "cod"}).status_code == 400
 
 
 def test_checkout_rejects_empty_cart_and_overstock(client, training):
-    h = auth(login(client, "dave.patel")["access_token"])
+    h = auth(login(client, "showrya.shop")["access_token"])
     addr = client.get("/api/users/me/addresses", headers=h).json()[0]["id"]
     assert client.post("/api/orders/checkout", headers=h, json={"address_id": addr, "payment_method": "cod"}).status_code == 400
     assert client.post("/api/cart/items", headers=h, json={"product_id": 1, "quantity": 10}).status_code in (201, 409)
@@ -57,7 +57,7 @@ def test_seller_scope(client, training):
     other = client.get("/api/seller/products", headers=auth(login(client, "stylehouse", "Seller#Style2026")["access_token"])).json()
     assert {p["id"] for p in mine}.isdisjoint({p["id"] for p in other})
     assert client.patch(f"/api/seller/products/{other[0]['id']}/stock", headers=auth(seller), json={"quantity": 1}).status_code == 404
-    customer = login(client, "alice.morgan")["access_token"]
+    customer = login(client, "gautham.shop")["access_token"]
     assert client.get("/api/seller/overview", headers=auth(customer)).status_code == 403
 
 
@@ -81,21 +81,21 @@ def test_lab_reset_is_scoped(client, training):
 
 
 def test_password_reset_flow(client, secure):
-    client.post("/api/auth/forgot-password", json={"identifier": "dave.patel"})
+    client.post("/api/auth/forgot-password", json={"identifier": "showrya.shop"})
     from tests.conftest import SessionLocal
     from app.models import SimulatedEmail
     import re
     with SessionLocal() as db:
-        mail = db.query(SimulatedEmail).filter(SimulatedEmail.to_address == "dave.patel@example.com", SimulatedEmail.subject.like("Reset%")).order_by(SimulatedEmail.id.desc()).first()
+        mail = db.query(SimulatedEmail).filter(SimulatedEmail.to_address == "showrya.shop@example.com", SimulatedEmail.subject.like("Reset%")).order_by(SimulatedEmail.id.desc()).first()
     token = re.search(r"token=([\w-]+)", mail.body).group(1)
     assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "Brand#New2026x"}).status_code == 200
     assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "Another#New2026"}).status_code == 400
-    assert client.post("/api/auth/login", json={"username": "dave.patel", "password": "Brand#New2026x"}).status_code == 200
-    t = client.post("/api/auth/login", json={"username": "dave.patel", "password": "Brand#New2026x"}).json()["access_token"]
+    assert client.post("/api/auth/login", json={"username": "showrya.shop", "password": "Brand#New2026x"}).status_code == 200
+    t = client.post("/api/auth/login", json={"username": "showrya.shop", "password": "Brand#New2026x"}).json()["access_token"]
     client.post("/api/auth/change-password", headers=auth(t), json={"current_password": "Brand#New2026x", "new_password": PASSWORD})
 
 
 def test_flags_never_in_normal_responses(client, training):
-    h = auth(login(client, "alice.morgan")["access_token"])
+    h = auth(login(client, "gautham.shop")["access_token"])
     for path in ["/api/products/home", "/api/products", "/api/categories", "/api/labs", "/api/orders", "/api/users/me", "/api/users/me/addresses", "/api/cart", "/api/products/1/reviews", "/api/products/search?q=phone"]:
         assert "VULN{" not in client.get(path, headers=h).text, path

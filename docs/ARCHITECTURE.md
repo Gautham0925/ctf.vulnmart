@@ -15,7 +15,7 @@ One platform, two applications, one PostgreSQL database.
 
 Every participant has one UUID in `identity.participants`. The username is identical in both apps because VulnMart creates its
 local shop user from the SSO assertion (`username = preferred_username`, `identity_uuid = sub`). FlagDesk reserves the
-VulnMart persona names (alice.morgan, admin, ...) and both organizer names, so a participant can never collide with a seeded shop user.
+VulnMart persona names (gautham.shop, admin, ...) and both organizer names, so a participant can never collide with a seeded shop user.
 Usernames are unique case-insensitively (`username_norm`, NFKC + lower-case).
 
 VulnMart participants have no shop password (`password_hash = '!sso-only'`, synthetic `uuid@sso.invalid` email) and shop registration is closed.

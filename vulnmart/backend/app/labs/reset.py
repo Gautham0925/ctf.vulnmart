@@ -8,7 +8,7 @@ from app.models import (
 )
 
 SEED_PASSWORD = "Shop#Pass2026"
-CUSTOMER_PREFIXES = ("alice.", "bob.", "carol.", "dave.", "erin.", "frank.", "grace.", "vault.", "ops.recovery")
+CUSTOMER_PREFIXES = ("gautham.", "pavan.", "tarun.", "showrya.", "rakshith.", "shreya.", "shika.", "vault.", "ops.recovery")
 
 
 def reset_lab(db: Session, lab_id: str) -> str:

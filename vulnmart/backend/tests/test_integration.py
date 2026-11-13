@@ -55,7 +55,7 @@ def test_flagdesk_outage_degrades_without_static_flag(client, training, monkeypa
 
 def test_sentinels_never_leak_and_cannot_be_planted(client, training):
     from app.core.flags_config import sentinel
-    h = auth(login(client, "alice.morgan")["access_token"])
+    h = auth(login(client, "gautham.shop")["access_token"])
     r = client.post("/api/users/me/addresses", headers=h, json={"label": "x", "recipient": "A B", "line1": "1 Road", "city": "C", "state": "S", "postal_code": "400001", "delivery_notes": sentinel("LAB-06")})
     assert r.status_code == 422
     for path in ["/api/orders", "/api/users/me/addresses", "/api/labs"]:
