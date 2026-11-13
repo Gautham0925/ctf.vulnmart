@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: ctf-vulnmart
+    runtime: docker
+    plan: free
+    dockerfilePath: ./deploy/render/flagdesk.Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - { key: PORT, value: "8000" }
+      - { key: ENVIRONMENT, value: training }
+      - { key: COOKIE_SECURE, value: "1" }
+      - { key: WEB_CONCURRENCY, value: "1" }
+      - { key: DB_NAME, value: neondb }
+      - { key: EVENT_ID, value: vulnmart-ctf-2026 }
+      - { key: EVENT_NAME, value: VULNMART CTF }
+      - { key: REGISTRATION_OPEN, value: "1" }
+      - { key: MAX_PARTICIPANTS, value: "0" }
+      - { key: ADMIN_DATABASE_URL, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: MIGRATOR_DATABASE_URL, sync: false }
+      - { key: MIGRATOR_DB_PASSWORD, sync: false }
+      - { key: FLAGDESK_DB_PASSWORD, sync: false }
+      - { key: VULNMART_DB_PASSWORD, sync: false }
+      - { key: FLAG_SECRET, sync: false }
+      - { key: SESSION_SECRET, sync: false }
+      - { key: TOTP_ENC_KEY, sync: false }
+      - { key: SSO_PRIVATE_KEY_PEM, sync: false }
+      - { key: SSO_ISSUER, sync: false }
+      - { key: SSO_CLIENTS, sync: false }
+      - { key: SHOP_PUBLIC_URL, sync: false }
+      - { key: VULNMART_SERVICE_TOKEN_SHA256, sync: false }
+      - { key: ORGANIZER_1_USERNAME, sync: false }
+      - { key: ORGANIZER_1_PASSWORD, sync: false }
+      - { key: ORGANIZER_1_TOTP_SECRET, sync: false }
+      - { key: ORGANIZER_2_USERNAME, sync: false }
+      - { key: ORGANIZER_2_PASSWORD, sync: false }
+      - { key: ORGANIZER_2_TOTP_SECRET, sync: false }
+  - type: web
+    name: vulnmart-shop
+    runtime: docker
+    plan: free
+    dockerfilePath: ./deploy/render/shop.Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - { key: ENVIRONMENT, value: training }
+      - { key: COOKIE_SECURE, value: "1" }
+      - { key: WEB_CONCURRENCY, value: "1" }
+      - { key: CTF_ENABLED, value: "1" }
+      - { key: LOCAL_REGISTRATION_ENABLED, value: "0" }
+      - { key: SEED_ON_START, value: "0" }
+      - { key: KEYS_DIR, value: /app/keys }
+      - { key: CORS_ORIGINS, value: "" }
+      - { key: DB_NAME, value: neondb }
+      - { key: DATABASE_URL, sync: false }
+      - { key: DB_DIRECT_HOST, sync: false }
+      - { key: MIGRATOR_DB_PASSWORD, sync: false }
+      - { key: FLAGDESK_INTERNAL_URL, sync: false }
+      - { key: FLAGDESK_PUBLIC_URL, sync: false }
+      - { key: FLAGDESK_SERVICE_TOKEN, sync: false }
+      - { key: SSO_ISSUER, sync: false }
+      - { key: SHOP_PUBLIC_URL, sync: false }
+      - { key: SHOP_SESSION_SECRET, sync: false }
