@@ -6,7 +6,7 @@ COPY flagdesk/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY flagdesk/app app
 COPY flagdesk/migrations migrations
-COPY flagdesk/alembic.ini challenges.seed.json ./
+COPY flagdesk/alembic.ini flagdesk/challenges.seed.json ./
 COPY scripts scripts
 RUN mkdir -p data && useradd -r -u 10001 app && chown -R app /srv/data
 USER app
