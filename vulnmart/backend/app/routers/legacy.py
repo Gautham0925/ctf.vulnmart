@@ -1,11 +1,11 @@
 import html
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from app.core.flags_config import flag_for
+from app.integration import participant as participant_ctx
 from app.core.mode import is_training
 from app.db import get_db
 from app.models import Product
@@ -34,7 +34,7 @@ def shell(title: str, body: str) -> str:
 
 
 @router.get("/legacy/search", response_class=HTMLResponse)
-def legacy_search(q: str = Query("", max_length=400), db: Session = Depends(get_db)):
+def legacy_search(request: Request, q: str = Query("", max_length=400), db: Session = Depends(get_db)):
     training = is_training()
     shown = q if training else html.escape(q)
     rows = []
@@ -52,7 +52,7 @@ def legacy_search(q: str = Query("", max_length=400), db: Session = Depends(get_
     )
     response = HTMLResponse(shell("Search - VulnMarket", body))
     if training and "<" in q:
-        response.set_cookie("vm_lab07", quote(flag_for("LAB-07"), safe=""), max_age=600, httponly=False, samesite="lax", path="/legacy")
+        response.set_cookie("vm_lab07", quote(participant_ctx.flag_for_request(request, "LAB-07"), safe=""), max_age=600, httponly=False, samesite="lax", path="/legacy")
     if not training:
         response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'; object-src 'none'; base-uri 'none'"
     return response
@@ -80,7 +80,7 @@ PROMO_SCRIPT_SECURE = """
 
 
 @router.get("/promo/flash-sale", response_class=HTMLResponse)
-def flash_sale(db: Session = Depends(get_db)):
+def flash_sale(request: Request, db: Session = Depends(get_db)):
     training = is_training()
     deals = db.query(Product).filter(Product.is_active.is_(True)).order_by(Product.discount_percent.desc()).limit(6).all()
     cards = "".join(
@@ -94,7 +94,7 @@ def flash_sale(db: Session = Depends(get_db)):
     page = shell("Flash Sale - VulnMarket", body).replace("</body>", (PROMO_SCRIPT_TRAINING if training else PROMO_SCRIPT_SECURE) + "</body>")
     response = HTMLResponse(page)
     if training:
-        response.set_cookie("vm_lab09", quote(flag_for("LAB-09"), safe=""), max_age=600, httponly=False, samesite="lax", path="/promo")
+        response.set_cookie("vm_lab09", quote(participant_ctx.flag_for_request(request, "LAB-09"), safe=""), max_age=600, httponly=False, samesite="lax", path="/promo")
     else:
         response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; require-trusted-types-for 'script'"
     return response

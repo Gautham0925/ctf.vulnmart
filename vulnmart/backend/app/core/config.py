@@ -18,10 +18,21 @@ class Settings(BaseSettings):
     partial_ttl_seconds: int = 300
     otp_ttl_seconds: int = 300
     ctf_enabled: bool = False
-    ctf_base_url: str = ""
-    ctf_api_token: str = ""
-    ctf_event_path: str = "/events"
-    ctf_timeout_seconds: float = 3.0
+    flagdesk_internal_url: str = "http://flagdesk:8000"
+    flagdesk_public_url: str = "http://ctf.localhost:8081"
+    flagdesk_service_token: str = ""
+    sso_client_id: str = "vulnmart-shop"
+    sso_audience: str = "vulnmart-shop"
+    sso_issuer: str = "https://ctf.local"
+    shop_public_url: str = "http://shop.localhost:8081"
+    shop_session_secret: str = ""
+    shop_session_hours: int = 12
+    cookie_secure: bool = False
+    local_registration_enabled: bool = True
+    ctf_timeout_seconds: float = 2.5
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    db_pool_timeout: int = 10
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 
     static_dir: str = "./static"

@@ -34,6 +34,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(32), default="")
     password_hash: Mapped[str] = mapped_column(String(255))
+    identity_uuid: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True)
     role: Mapped[str] = mapped_column(String(16), default="customer", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

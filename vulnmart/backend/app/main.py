@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import seed
 from app.core.config import get_settings
 from app.core.mode import current_mode
-from app.routers import admin, auth, labs, legacy, orders, products, reviews, seller, users
+from app.routers import admin, auth, labs, legacy, orders, products, reviews, seller, sso, users
 
 settings = get_settings()
 
@@ -67,7 +67,7 @@ def startup_status(request: Request):
     return {"database": "error" if err else "ok", "detail": err}
 
 
-for module in (auth, users, products, orders, reviews, seller, admin, labs, legacy):
+for module in (auth, users, products, orders, reviews, seller, admin, labs, legacy, sso):
     app.include_router(module.router)
 
 

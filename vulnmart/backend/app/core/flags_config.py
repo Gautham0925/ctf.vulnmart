@@ -1,18 +1,20 @@
-LAB_FLAGS = {
-    "LAB-01": "FLAG{U$@RNAM€_€NUM€RATION_001}",
-    "LAB-02": "FLAG{PA$$WORD_R€$€T_€NUM_002}",
-    "LAB-03": "FLAG{IDOR_ORD€R_ACC€$$_003}",
-    "LAB-04": "FLAG{BROK€N_AUTH_004}",
-    "LAB-05": "FLAG{V€RTICAL_PRIV_€$C_005}",
-    "LAB-06": "FLAG{HORIZONTAL_PRIV_€$C_006}",
-    "LAB-07": "FLAG{R€FL€CT€D_X$$_007}",
-    "LAB-08": "FLAG{$TOR€D_X$$_008}",
-    "LAB-09": "FLAG{DOM_BA$€D_X$$_009}",
-    "LAB-10": "FLAG{$QL_INJ€CTION_010}",
-    "LAB-11": "FLAG{JWT_K€Y_CONFU$ION_011}",
-    "LAB-12": "FLAG{HALF_AUTH_BYPASS_012}",
-}
+import hashlib
+import hmac
+
+from fastapi import HTTPException
+
+from app.core.config import get_settings
+
+LAB_IDS = tuple(f"LAB-{i:02d}" for i in range(1, 13))
+MARK = "[[VMS:"
 
 
-def flag_for(lab_id: str) -> str:
-    return LAB_FLAGS[lab_id]
+def sentinel(lab_id: str) -> str:
+    key = (get_settings().shop_session_secret or "unset-sentinel-key").encode()
+    return f"{MARK}{lab_id}:{hmac.new(key, lab_id.encode(), hashlib.sha256).hexdigest()[:12]}]]"
+
+
+def reject_marker(*values: str) -> None:
+    for v in values:
+        if v and MARK in v:
+            raise HTTPException(422, "Invalid characters in text")

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.flags_config import flag_for
+from app.core.flags_config import reject_marker, sentinel
 from app.core.mode import is_training
 from app.db import get_db
 from app.deps import Principal, audit, client_ip, current_principal, lenient_principal, objective_reached
@@ -58,6 +58,7 @@ def my_addresses(principal: Principal = Depends(current_principal), db: Session 
 
 @router.post("/api/users/me/addresses", status_code=201)
 def add_address(body: AddressIn, principal: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    reject_marker(body.delivery_notes)
     if body.is_default:
         db.query(Address).filter(Address.user_id == principal.user.id).update({"is_default": False})
     addr = Address(user_id=principal.user.id, **body.model_dump())
@@ -92,9 +93,13 @@ def user_addresses(user_id: int, request: Request, principal: Principal = Depend
     if not is_training() and foreign and principal.user.role != "admin":
         raise HTTPException(403, "You do not have access to these addresses")
     rows = db.query(Address).filter(Address.user_id == user_id).order_by(Address.id).all()
-    if is_training() and foreign and any(r.delivery_notes == flag_for("LAB-06") for r in rows):
-        objective_reached(db, request, principal.user, "LAB-06", f"read addresses of user {user_id}")
-    return [address_out(a) for a in rows]
+    out = [address_out(a) for a in rows]
+    if is_training() and foreign and any(r.delivery_notes == sentinel("LAB-06") for r in rows):
+        flag = objective_reached(db, request, principal.user, "LAB-06", f"read addresses of user {user_id}")
+        for item in out:
+            if item["delivery_notes"] == sentinel("LAB-06"):
+                item["delivery_notes"] = flag
+    return out
 
 
 @router.get("/api/users/me/wishlist")
@@ -137,6 +142,5 @@ def security_overview(request: Request, principal: Principal = Depends(lenient_p
     }
     if is_training() and principal.stage != "full":
         data["session_stage"] = principal.stage
-        data["partial_session_notice"] = flag_for("LAB-12")
-        objective_reached(db, request, user, "LAB-12", "security overview read with partial token")
+        data["partial_session_notice"] = objective_reached(db, request, user, "LAB-12", "security overview read with partial token")
     return data

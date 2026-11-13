@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.core.flags_config import flag_for
+from app.core.flags_config import sentinel
 from app.core.security import hash_password
 from app.db import Base, SessionLocal, engine
 from app.labs.catalog import LABS
@@ -153,7 +153,7 @@ def seed(db: Session):
         user = users[username]
         city, state, pin = cities[i % len(cities)]
         db.add(Address(user_id=user.id, label="Home", recipient=fullname, line1=f"{12 + i}, Lakeview Residency, 4th Cross", city=city, state=state, postal_code=pin, delivery_notes="Leave with security if not home", is_default=True))
-        extra_note = flag_for("LAB-06") if username == "erin.kowalski" else "Call before delivery"
+        extra_note = sentinel("LAB-06") if username == "erin.kowalski" else "Call before delivery"
         db.add(Address(user_id=user.id, label="Office", recipient=fullname, line1=f"Tower {2 + i}, Tech Park Road", city=city, state=state, postal_code=pin, delivery_notes=extra_note))
         db.add(Cart(user_id=user.id))
 
@@ -199,7 +199,7 @@ def seed(db: Session):
             total = round(subtotal - disc + shipping, 2)
             gift = ""
             if cu.username == "carol.nguyen" and k == 0:
-                gift = flag_for("LAB-03")
+                gift = sentinel("LAB-03")
             addr = db.query(Address).filter(Address.user_id == cu.id, Address.is_default.is_(True)).first()
             order = Order(order_number=f"VM{order_no}", user_id=cu.id, status=rng.choice(["placed", "shipped", "delivered", "delivered"]), subtotal=round(subtotal, 2), discount=round(disc, 2), shipping=shipping, total=total, payment_method=rng.choice(["upi", "card", "cod"]), shipping_address={"recipient": addr.recipient, "line1": addr.line1, "city": addr.city, "state": addr.state, "postal_code": addr.postal_code}, gift_message=gift, created_at=ts + timedelta(days=10 + idx * 3 + k))
             db.add(order)
@@ -212,7 +212,7 @@ def seed(db: Session):
     for lab in LABS:
         db.add(SecurityLab(**lab))
 
-    db.add(TrainingSecret(name="lab10_internal_token", value=flag_for("LAB-10")))
+    db.add(TrainingSecret(name="lab10_internal_token", value=sentinel("LAB-10")))
     db.add(TrainingSecret(name="catalog_build", value="vm-catalog-2026.11"))
     db.add(AppSetting(key="mode", value="training"))
     db.commit()

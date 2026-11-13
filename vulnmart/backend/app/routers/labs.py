@@ -5,7 +5,7 @@ from app.core.config import get_settings
 from app.core.mode import current_mode, is_training
 from app.db import get_db
 from app.deps import Principal, current_principal, require_roles
-from app.integration.ctf import integration_status
+from app.integration import flagdesk as _fd
 from app.models import SimulatedEmail, SecurityLab, User
 
 router = APIRouter(tags=["labs"])
@@ -49,12 +49,12 @@ def contract(principal: Principal = Depends(require_roles("admin")), db: Session
     rows = db.query(SecurityLab).order_by(SecurityLab.lab_id).all()
     return {
         "version": "1.0",
-        "status": integration_status(),
+        "status": {"enabled": _fd.enabled(), "owns": ["identity", "flag_issuance", "flag_validation", "scoring"]},
         "labs": [{"lab_id": l.lab_id, "name": l.name, "difficulty": l.difficulty, "category": l.category} for l in rows],
         "event": {
-            "type": "lab.objective_reached",
-            "fields": ["lab_id", "participant", "mode", "occurred_at"],
-            "note": "Flags are never sent. The external platform owns validation, scoring and completion tracking.",
+            "type": "POST /internal/objectives",
+            "fields": ["participant_id", "lab_id"],
+            "note": "VulnMart reports an objective; FlagDesk derives and returns the participant-bound flag. The flag secret never reaches VulnMart.",
         },
     }
 

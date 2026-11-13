@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.mode import is_training
 from app.core.security import TokenError, verify_token_secure, verify_token_vulnerable
 from app.db import get_db
-from app.integration.ctf import emit_objective_event
+from app.integration import participant as participant_ctx
 from app.models import AuditLog, AuthSession, User
 
 bearer = HTTPBearer(auto_error=False)
@@ -42,9 +42,9 @@ def audit(db: Session, user_id, action: str, detail: str = "", lab_id: str = "",
     db.commit()
 
 
-def objective_reached(db: Session, request: Request, user: User | None, lab_id: str, detail: str) -> None:
+def objective_reached(db: Session, request: Request, user: User | None, lab_id: str, detail: str) -> str:
     audit(db, user.id if user else None, "lab.objective_reached", detail, lab_id, client_ip(request))
-    emit_objective_event(lab_id, user.username if user else "anonymous", "training")
+    return participant_ctx.flag_for_request(request, lab_id)
 
 
 def _authenticate(request: Request, creds, db: Session, allow_partial: bool) -> Principal:

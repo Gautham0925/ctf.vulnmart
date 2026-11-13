@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.core.flags_config import sentinel
 from app.core.mode import is_training
 from app.db import get_db
+from app.deps import audit, client_ip
+from app.integration import participant as participant_ctx
 from app.models import Category, Inventory, Product, Review
 
 router = APIRouter(tags=["catalog"])
@@ -116,6 +119,7 @@ def build_search(q: str, category: str | None, min_price: float | None, max_pric
 
 @router.get("/api/products/search")
 def search_products(
+    request: Request,
     q: str = Query("", max_length=200),
     category: str | None = None,
     min_price: float | None = Query(None, ge=0),
@@ -141,6 +145,7 @@ def search_products(
             raise HTTPException(400, detail={"detail": "Search failed", "debug": str(exc.orig)[:300]})
         raise HTTPException(400, "Search failed")
     start = (page - 1) * page_size
+    sentinel_value = sentinel("LAB-10")
     items = []
     for r in rows[start:start + page_size]:
         price = float(r["price"] or 0)
@@ -156,6 +161,15 @@ def search_products(
             "image": r["image"],
             "category": r["category"],
         })
+    if is_training():
+        leaked = False
+        for item in items:
+            for k, v in item.items():
+                if isinstance(v, str) and sentinel_value in v:
+                    leaked = True
+                    item[k] = v.replace(sentinel_value, participant_ctx.flag_for_request(request, "LAB-10"))
+        if leaked:
+            audit(db, None, "lab.objective_reached", "training secret extracted via search", "LAB-10", client_ip(request))
     return {"items": items, "total": len(rows), "page": page, "page_size": page_size, "query": q}
 
 

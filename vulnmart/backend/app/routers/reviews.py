@@ -2,12 +2,13 @@ import html
 import re
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.flags_config import flag_for
+from app.core.flags_config import reject_marker
+from app.integration import participant as participant_ctx
 from app.core.mode import is_training
 from app.db import get_db
 from app.deps import Principal, current_principal
@@ -39,10 +40,14 @@ def review_out(r: Review) -> dict:
 
 
 @router.get("/api/products/{product_id}/reviews")
-def list_reviews(product_id: int, response: Response, db: Session = Depends(get_db)):
+def list_reviews(product_id: int, request: Request, response: Response, db: Session = Depends(get_db)):
     rows = db.query(Review).filter(Review.product_id == product_id, Review.status == "approved").order_by(Review.id.desc()).limit(50).all()
-    if is_training() and any(ACTIVE_MARKUP.search(r.body) for r in rows):
-        response.set_cookie("vm_lab08", quote(flag_for("LAB-08"), safe=""), max_age=600, httponly=False, samesite="lax", path="/")
+    if is_training() and rows:
+        ctx = participant_ctx.current(request)
+        if ctx:
+            mine = [r for r in rows if r.user and r.user.identity_uuid == ctx["sub"] and ACTIVE_MARKUP.search(r.body)]
+            if mine:
+                response.set_cookie("vm_lab08", quote(participant_ctx.flag_for_request(request, "LAB-08"), safe=""), max_age=600, httponly=False, samesite="lax", path="/")
     return [review_out(r) for r in rows]
 
 

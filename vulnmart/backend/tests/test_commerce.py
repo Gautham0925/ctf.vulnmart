@@ -66,7 +66,7 @@ def test_admin_functions_and_mode(client, training):
     ov = client.get("/api/admin/overview", headers=admin).json()
     assert ov["users"] >= 15 and ov["mode"] == "training"
     assert len(client.get("/api/admin/labs", headers=admin).json()) == 12
-    assert client.get("/api/integration/contract", headers=admin).json()["event"]["note"].startswith("Flags are never sent")
+    assert client.get("/api/integration/contract", headers=admin).json()["event"]["note"].startswith("VulnMart reports an objective")
     assert client.put("/api/admin/config/mode", headers=admin, json={"mode": "secure"}).json()["mode"] == "secure"
     assert client.get("/api/health").json()["mode"] == "secure"
     assert client.put("/api/admin/config/mode", headers=auth(login(client, "admin", ADMIN_PASSWORD)["access_token"]), json={"mode": "training"}).status_code == 200
@@ -98,4 +98,4 @@ def test_password_reset_flow(client, secure):
 def test_flags_never_in_normal_responses(client, training):
     h = auth(login(client, "alice.morgan")["access_token"])
     for path in ["/api/products/home", "/api/products", "/api/categories", "/api/labs", "/api/orders", "/api/users/me", "/api/users/me/addresses", "/api/cart", "/api/products/1/reviews", "/api/products/search?q=phone"]:
-        assert "FLAG{" not in client.get(path, headers=h).text, path
+        assert "VULN{" not in client.get(path, headers=h).text, path

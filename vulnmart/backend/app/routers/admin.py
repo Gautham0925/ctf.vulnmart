@@ -4,11 +4,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.flags_config import flag_for
 from app.core.mode import current_mode, is_training, set_mode
 from app.db import get_db
 from app.deps import Principal, audit, client_ip, objective_reached, require_roles
-from app.integration.ctf import integration_status
+from app.integration import flagdesk as _fd
 from app.labs.reset import reset_lab
 from app.models import AuditLog, Order, Product, Review, SecurityLab, User
 
@@ -51,8 +50,7 @@ def overview(request: Request, principal: Principal = Depends(admin_only), db: S
     }
     escalated = db.query(AuditLog).filter(AuditLog.user_id == principal.user.id, AuditLog.action == "profile.role_assignment").first()
     if is_training() and escalated:
-        data["compliance_banner"] = flag_for("LAB-05")
-        objective_reached(db, request, principal.user, "LAB-05", "admin overview reached after profile role assignment")
+        data["compliance_banner"] = objective_reached(db, request, principal.user, "LAB-05", "admin overview reached after profile role assignment")
     return data
 
 
@@ -60,8 +58,7 @@ def overview(request: Request, principal: Principal = Depends(admin_only), db: S
 def vault(request: Request, principal: Principal = Depends(admin_only), db: Session = Depends(get_db)):
     data = {"vault": "payment-gateway-simulated", "keys": ["pk_test_sim_001", "pk_test_sim_002"], "rotated_at": "2026-10-01"}
     if is_training() and principal.alg == "HS256":
-        data["key_audit"] = flag_for("LAB-11")
-        objective_reached(db, request, principal.user, "LAB-11", "admin vault reached with HS256 token")
+        data["key_audit"] = objective_reached(db, request, principal.user, "LAB-11", "admin vault reached with HS256 token")
     return data
 
 
@@ -131,12 +128,14 @@ def config(principal: Principal = Depends(admin_only)):
         "mode": current_mode(),
         "environment": settings.environment,
         "training_allowed": settings.training_allowed,
-        "ctf_integration": integration_status(),
+        "ctf_integration": {"enabled": _fd.enabled()},
     }
 
 
 @router.put("/config/mode")
 def update_mode(body: ModeIn, request: Request, principal: Principal = Depends(admin_only), db: Session = Depends(get_db)):
+    if settings.ctf_enabled:
+        raise HTTPException(403, "Mode is managed by the event organizers")
     try:
         mode = set_mode(db, body.mode)
     except ValueError:
@@ -156,6 +155,8 @@ def labs(principal: Principal = Depends(admin_only), db: Session = Depends(get_d
 
 @router.post("/labs/{lab_id}/reset")
 def reset(lab_id: str, request: Request, principal: Principal = Depends(admin_only), db: Session = Depends(get_db)):
+    if settings.ctf_enabled:
+        raise HTTPException(403, "Lab resets are managed by the event organizers")
     if not db.query(SecurityLab).filter(SecurityLab.lab_id == lab_id).first():
         raise HTTPException(404, "Lab not found")
     detail = reset_lab(db, lab_id)

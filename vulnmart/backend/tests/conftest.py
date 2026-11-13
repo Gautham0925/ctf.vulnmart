@@ -1,3 +1,10 @@
+import hashlib
+import os
+import uuid
+
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://ctf_migrator:dev-migrator-pw@localhost:5432/ctf_dev?options=-csearch_path%3Dvulnmart")
+os.environ.setdefault("SHOP_SESSION_SECRET", "t" * 48)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 import base64
 import hashlib
 import hmac
@@ -23,8 +30,38 @@ def fresh_database():
     yield
 
 
+TEST_PARTICIPANT = "11111111-1111-4111-8111-111111111111"
+
+
+def fake_flag(participant_id, lab_id):
+    return "VULN{" + hashlib.sha256(f"{participant_id}|{lab_id}".encode()).hexdigest()[:32].upper() + "}"
+
+
+def expected(lab_id, participant_id=TEST_PARTICIPANT):
+    return fake_flag(participant_id, lab_id)
+
+
+@pytest.fixture(autouse=True)
+def stub_flagdesk(monkeypatch):
+    from app.integration import flagdesk
+    monkeypatch.setattr(flagdesk, "issue_flag", lambda pid, lab: fake_flag(pid, lab))
+    monkeypatch.setattr(flagdesk, "session_active", lambda sid, ttl=10.0: True)
+
+
+def sso_cookie(participant_id=TEST_PARTICIPANT, username="ctf.player"):
+    from app.integration import participant
+    return participant.make_cookie(participant_id, username, "sid-test")
+
+
 @pytest.fixture()
 def client():
+    with TestClient(app, base_url="http://localhost") as c:
+        c.cookies.set("vm_sso", sso_cookie())
+        yield c
+
+
+@pytest.fixture()
+def anon_client():
     with TestClient(app, base_url="http://localhost") as c:
         yield c
 

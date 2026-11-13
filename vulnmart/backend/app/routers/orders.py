@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.flags_config import flag_for
+from app.core.flags_config import reject_marker, sentinel
 from app.core.mode import is_training
 from app.db import get_db
 from app.deps import Principal, current_principal, objective_reached
@@ -159,6 +159,7 @@ def checkout(body: CheckoutIn, principal: Principal = Depends(current_principal)
             raise HTTPException(409, f"{item.product.title} no longer has enough stock")
     last = db.query(Order).order_by(Order.id.desc()).first()
     number = f"VM{5001 + (last.id if last else 0) + secrets.randbelow(7)}"
+    reject_marker(body.gift_message)
     order = Order(
         order_number=number, user_id=user.id, status="placed", subtotal=view["subtotal"], discount=view["discount"],
         shipping=view["shipping"], total=view["total"], payment_method=body.payment_method,
@@ -191,9 +192,10 @@ def get_order(order_id: int, request: Request, principal: Principal = Depends(cu
     foreign = order.user_id != principal.user.id
     if foreign and not is_training() and principal.user.role != "admin":
         raise HTTPException(404, "Order not found")
-    if is_training() and foreign and order.gift_message == flag_for("LAB-03"):
-        objective_reached(db, request, principal.user, "LAB-03", f"read order {order_id}")
-    return order_detail(order)
+    data = order_detail(order)
+    if is_training() and foreign and order.gift_message == sentinel("LAB-03"):
+        data["gift_message"] = objective_reached(db, request, principal.user, "LAB-03", f"read order {order_id}")
+    return data
 
 
 def invoice_view(inv: Invoice, order: Order) -> dict:

@@ -9,7 +9,6 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.flags_config import flag_for
 from app.core.mode import is_training
 from app.core.security import (
     PUBLIC_KEY_PEM, hash_password, issue_token, random_token, sha256, verify_password,
@@ -122,6 +121,8 @@ def full_tokens(db: Session, user: User, session: AuthSession) -> dict:
 
 @router.post("/register", status_code=201)
 def register(body: RegisterIn, db: Session = Depends(get_db)):
+    if not settings.local_registration_enabled:
+        raise HTTPException(403, "Accounts are created through the CTF platform. Sign in with your CTF account.")
     exists = db.query(User).filter(or_(User.username == body.username, User.email == body.email.lower())).first()
     if exists:
         raise HTTPException(409, "An account with those details already exists")
@@ -161,8 +162,7 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
             audit(db, user.id, "auth.login_failed", "bad_password", ip=ip)
             detail = {"detail": "Incorrect password", "attempts_remaining": 4}
             if user.username == "vault.audit":
-                detail["audit_reference"] = flag_for("LAB-01")
-                objective_reached(db, request, user, "LAB-01", "hidden account identified via login responses")
+                detail["audit_reference"] = objective_reached(db, request, user, "LAB-01", "hidden account identified via login responses")
             raise HTTPException(401, detail=detail)
     else:
         throttle(f"login:{ip}:{ident.lower()}", 8, 300)
@@ -246,8 +246,7 @@ def refresh(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
         "expires_in": settings.access_ttl_seconds,
     }
     if stale_password or logged_out:
-        result["session_audit"] = {"note": "Refresh token accepted after session end", "reference": flag_for("LAB-04")}
-        objective_reached(db, request, user, "LAB-04", "refresh token reused after logout or password change")
+        result["session_audit"] = {"note": "Refresh token accepted after session end", "reference": objective_reached(db, request, user, "LAB-04", "refresh token reused after logout or password change")}
     return result
 
 
@@ -305,8 +304,7 @@ def forgot_password(body: ForgotIn, request: Request, db: Session = Depends(get_
             raise HTTPException(404, "We couldn't find an account with that username or email")
         payload = {"message": f"Password reset link sent to {mask_email(user.email)}", "delivery": "simulated"}
         if user.username == "ops.recovery":
-            payload["recovery_ticket"] = flag_for("LAB-02")
-            objective_reached(db, request, user, "LAB-02", "hidden account identified via recovery responses")
+            payload["recovery_ticket"] = objective_reached(db, request, user, "LAB-02", "hidden account identified via recovery responses")
         return payload
     return {"message": "If an account exists, a reset link has been sent."}
 
