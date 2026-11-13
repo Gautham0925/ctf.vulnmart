@@ -1,0 +1,7 @@
+{$CTF_HOST}, {$SHOP_HOST} {
+  encode gzip
+  reverse_proxy nginx:80 {
+    header_up Host {host}
+    header_up X-Forwarded-Proto https
+  }
+}

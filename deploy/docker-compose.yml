@@ -1,0 +1,188 @@
+name: vulnmart-ctf
+
+x-flagdesk-env: &flagdesk-env
+  ENVIRONMENT: ${ENVIRONMENT:-training}
+  DATABASE_URL: postgresql://flagdesk_app:${FLAGDESK_DB_PASSWORD}@pgbouncer:6432/${DB_NAME}
+  REDIS_URL: redis://redis:6379/0
+  FLAG_SECRET: ${FLAG_SECRET}
+  SESSION_SECRET: ${SESSION_SECRET}
+  TOTP_ENC_KEY: ${TOTP_ENC_KEY}
+  SSO_PRIVATE_KEY_FILE: /srv/data/sso_key.pem
+  SSO_ISSUER: ${PUBLIC_SCHEME:-http}://${CTF_HOST}:${PUBLIC_PORT:-8081}
+  SSO_CLIENTS: '{"vulnmart-shop": {"redirect_uris": ["${PUBLIC_SCHEME:-http}://${SHOP_HOST}:${PUBLIC_PORT:-8081}/api/sso/callback"], "audience": "vulnmart-shop"}}'
+  SHOP_PUBLIC_URL: ${PUBLIC_SCHEME:-http}://${SHOP_HOST}:${PUBLIC_PORT:-8081}
+  VULNMART_SERVICE_TOKEN_SHA256: ${SERVICE_TOKEN_SHA256}
+  COOKIE_SECURE: ${COOKIE_SECURE:-0}
+  EVENT_ID: ${EVENT_ID:-vulnmart-ctf-2026}
+  EVENT_NAME: ${EVENT_NAME:-VULNMART CTF}
+  EVENT_CODE: ${EVENT_CODE:-}
+  REGISTRATION_OPEN: ${REGISTRATION_OPEN:-1}
+  MAX_PARTICIPANTS: ${MAX_PARTICIPANTS:-0}
+  ORGANIZER_1_USERNAME: ${ORGANIZER_1_USERNAME:-}
+  ORGANIZER_1_PASSWORD: ${ORGANIZER_1_PASSWORD:-}
+  ORGANIZER_1_TOTP_SECRET: ${ORGANIZER_1_TOTP_SECRET:-}
+  ORGANIZER_2_USERNAME: ${ORGANIZER_2_USERNAME:-}
+  ORGANIZER_2_PASSWORD: ${ORGANIZER_2_PASSWORD:-}
+  ORGANIZER_2_TOTP_SECRET: ${ORGANIZER_2_TOTP_SECRET:-}
+
+x-shop-env: &shop-env
+  ENVIRONMENT: ${ENVIRONMENT:-training}
+  DATABASE_URL: postgresql+psycopg://vulnmart_app:${VULNMART_DB_PASSWORD}@pgbouncer:6432/${DB_NAME}
+  REDIS_URL: redis://redis:6379/0
+  KEYS_DIR: /app/keys
+  CTF_ENABLED: "1"
+  FLAGDESK_INTERNAL_URL: http://flagdesk:8000
+  FLAGDESK_PUBLIC_URL: ${PUBLIC_SCHEME:-http}://${CTF_HOST}:${PUBLIC_PORT:-8081}
+  FLAGDESK_SERVICE_TOKEN: ${SERVICE_TOKEN}
+  SSO_ISSUER: ${PUBLIC_SCHEME:-http}://${CTF_HOST}:${PUBLIC_PORT:-8081}
+  SHOP_PUBLIC_URL: ${PUBLIC_SCHEME:-http}://${SHOP_HOST}:${PUBLIC_PORT:-8081}
+  SHOP_SESSION_SECRET: ${SHOP_SESSION_SECRET}
+  COOKIE_SECURE: ${COOKIE_SECURE:-0}
+  LOCAL_REGISTRATION_ENABLED: "0"
+  CORS_ORIGINS: ""
+  SEED_ON_START: "0"
+
+services:
+  postgres:
+    profiles: ["bundled-db"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${BUNDLED_POSTGRES_PASSWORD:-postgres}
+    command: ["postgres", "-c", "max_connections=120", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "work_mem=8MB", "-c", "synchronous_commit=on"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 128M }
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 192M }
+
+  init-flagdesk:
+    build: { context: .., dockerfile: flagdesk/Dockerfile }
+    restart: "no"
+    environment:
+      <<: *flagdesk-env
+      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL}
+      DB_NAME: ${DB_NAME}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD}
+      FLAGDESK_DB_PASSWORD: ${FLAGDESK_DB_PASSWORD}
+      VULNMART_DB_PASSWORD: ${VULNMART_DB_PASSWORD}
+      MIGRATOR_DATABASE_URL: postgresql://ctf_migrator:${MIGRATOR_DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+    command: ["sh", "-c", "python scripts/db_bootstrap.py --create-database && alembic upgrade head"]
+
+  init-shop:
+    build: { context: ../vulnmart/backend }
+    restart: "no"
+    depends_on:
+      init-flagdesk: { condition: service_completed_successfully }
+    environment:
+      <<: *shop-env
+      DATABASE_URL: postgresql+psycopg://ctf_migrator:${MIGRATOR_DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?options=-csearch_path%3Dvulnmart
+      MIGRATOR_DATABASE_URL: postgresql://ctf_migrator:${MIGRATOR_DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed"]
+
+  flagdesk:
+    build: { context: .., dockerfile: flagdesk/Dockerfile }
+    restart: unless-stopped
+    depends_on:
+      init-shop: { condition: service_completed_successfully }
+      pgbouncer: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *flagdesk-env
+      WEB_CONCURRENCY: ${FLAGDESK_WORKERS:-2}
+    volumes: [flagdesk-data:/srv/data]
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 768M }
+
+  vulnmart-backend:
+    build: { context: ../vulnmart/backend }
+    restart: unless-stopped
+    depends_on:
+      init-shop: { condition: service_completed_successfully }
+      pgbouncer: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      flagdesk: { condition: service_healthy }
+    environment:
+      <<: *shop-env
+      WEB_CONCURRENCY: ${VULNMART_WORKERS:-2}
+    volumes: [shop-keys:/app/keys]
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1024M }
+
+  vulnmart-frontend:
+    build: { context: ../vulnmart/frontend }
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports: ["${NGINX_BIND:-0.0.0.0}:${NGINX_PORT:-8081}:80"]
+    environment:
+      CTF_HOST: ${CTF_HOST}
+      SHOP_HOST: ${SHOP_HOST}
+    volumes:
+      - ./nginx/nginx.conf.tmpl:/etc/nginx/templates/nginx.conf.template:ro
+    command: ["sh", "-c", "envsubst '$$CTF_HOST $$SHOP_HOST' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
+    depends_on:
+      flagdesk: { condition: service_healthy }
+      vulnmart-backend: { condition: service_healthy }
+      vulnmart-frontend: { condition: service_started }
+
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      CTF_HOST: ${CTF_HOST}
+      SHOP_HOST: ${SHOP_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [nginx]
+
+volumes:
+  caddy-data:
+  pgdata:
+  flagdesk-data:
+  shop-keys:
