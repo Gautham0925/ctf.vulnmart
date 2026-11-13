@@ -167,3 +167,30 @@ class ObjectiveEvent(Base):
     challenge_id: Mapped[str] = mapped_column(String(32))
     source: Mapped[str] = mapped_column(String(32), default="vulnmart")
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
+
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+    __table_args__ = (Index("ix_announcements_created", "created_at"), {"schema": "flagdesk"})
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(String(1000), default="")
+    link: Mapped[str] = mapped_column(String(500), default="")
+    challenge_id: Mapped[str] = mapped_column(String(32), default="")
+    kind: Mapped[str] = mapped_column(String(16), default="message")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TS, default=now)
+
+
+class Resource(Base):
+    __tablename__ = "resources"
+    __table_args__ = {"schema": "flagdesk"}
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(300), default="")
+    filename: Mapped[str] = mapped_column(String(80))
+    content: Mapped[str] = mapped_column(Text)
+    labs: Mapped[list] = mapped_column(JSONB, default=list)
+    released_labs: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(TS, default=now)
+    released_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)

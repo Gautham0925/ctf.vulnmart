@@ -1,0 +1,22 @@
+alg=none
+alg=None
+alg=NONE
+alg=HS256
+alg=HS384
+alg=HS512
+alg=RS256
+alg=ES256
+kid=vm-training-1
+kid=../../dev/null
+kid=' OR 1=1--
+role=admin
+role=customer
+role=seller
+role=superadmin
+stage=full
+stage=authenticated
+stage=password_verified
+amr=mfa
+sub=1
+sub=2
+exp=9999999999

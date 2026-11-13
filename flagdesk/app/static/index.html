@@ -15,9 +15,14 @@
 <ul class="navbar-nav me-auto flex-row gap-3" id="tabs" hidden>
 <li class="nav-item"><a class="nav-link" data-tab="challenges" href="#challenges">Challenges</a></li>
 <li class="nav-item"><a class="nav-link" data-tab="scoreboard" href="#scoreboard">Scoreboard</a></li>
+<li class="nav-item"><a class="nav-link" data-tab="wordlists" href="#wordlists">Wordlists</a></li>
 <li class="nav-item" id="admin-tab" hidden><a class="nav-link" data-tab="admin" href="#admin">Organizer</a></li>
 </ul>
 <div class="d-flex align-items-center gap-3" id="userbox" hidden>
+<div class="dropdown" id="bell-wrap">
+<button class="btn btn-sm btn-outline-secondary position-relative" id="bell" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Notifications"><i class="bi bi-bell"></i><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="bell-count" hidden>0</span></button>
+<div class="dropdown-menu dropdown-menu-end p-0 notif-panel" id="notif-panel"><div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom border-secondary-subtle"><strong>Notifications</strong><button class="btn btn-sm btn-link p-0" id="notif-read">Mark all read</button></div><div id="notif-list"></div></div>
+</div>
 <span class="badge text-bg-dark border border-secondary-subtle fs-6 mono" id="score-badge"></span>
 <span class="text-secondary" id="whoami"></span>
 <button class="btn btn-sm btn-outline-secondary" id="logout">Sign out</button>
@@ -71,10 +76,33 @@
 <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:80px">Rank</th><th>Player</th><th class="text-end">Solved</th><th class="text-end">Score</th></tr></thead><tbody id="board-body"></tbody></table></div></div>
 </section>
 
+<section id="view-wordlists" hidden>
+<div class="mb-3"><h1 class="h3 mb-1">Wordlists</h1><p class="text-secondary mb-0">Lists released by the organizers for specific labs. New ones appear here and in your notifications.</p></div>
+<div class="row g-3" id="wordlist-grid"></div>
+</section>
+
 <section id="view-admin" hidden>
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><h1 class="h3 mb-0">Organizer dashboard</h1>
 <div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="/api/admin/export.csv"><i class="bi bi-download me-1"></i>Export CSV</a></div></div>
 <div class="row g-3 mb-4" id="admin-stats"></div>
+<h2 class="h5">Send a notification</h2>
+<div class="card mb-4"><div class="card-body"><form class="row g-2" id="ann-form">
+<div class="col-md-4"><input class="form-control" id="an-title" placeholder="Title" maxlength="120" required></div>
+<div class="col-md-5"><input class="form-control" id="an-body" placeholder="Message (optional)" maxlength="1000"></div>
+<div class="col-md-3"><input class="form-control mono" id="an-chal" placeholder="Lab, e.g. LAB-07 (optional)" maxlength="32"></div>
+<div class="col-md-9"><input class="form-control" id="an-link" placeholder="Link (optional): https://... or /api/resources/.../download" maxlength="500"></div>
+<div class="col-md-3"><button class="btn btn-accent w-100" type="submit"><i class="bi bi-megaphone me-1"></i>Push to everyone</button></div>
+</form>
+<div class="table-responsive mt-3"><table class="table table-sm align-middle mb-0"><thead><tr><th>Time</th><th>Title</th><th>Lab</th><th>Link</th><th></th></tr></thead><tbody id="admin-anns"></tbody></table></div></div></div>
+<h2 class="h5">Wordlists</h2>
+<div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Wordlist</th><th>Lines</th><th>Release for labs</th><th></th></tr></thead><tbody id="admin-res"></tbody></table></div>
+<div class="card-body border-top border-secondary-subtle"><form class="row g-2" id="res-form">
+<div class="col-md-4"><input class="form-control" id="rs-title" placeholder="New wordlist title" maxlength="120" required></div>
+<div class="col-md-3"><input class="form-control mono" id="rs-file" placeholder="filename.txt" maxlength="80" pattern="[A-Za-z0-9._\-]{1,80}" required></div>
+<div class="col-md-5"><input class="form-control mono" id="rs-labs" placeholder="Labs, comma separated: LAB-01,LAB-02"></div>
+<div class="col-12"><textarea class="form-control mono" id="rs-content" rows="3" placeholder="One entry per line" required></textarea></div>
+<div class="col-12"><button class="btn btn-outline-secondary" type="submit">Add wordlist (hidden until released)</button></div>
+</form></div></div>
 <h2 class="h5">Challenges</h2>
 <div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>ID</th><th>Title</th><th style="width:120px">Points</th><th>Enabled</th><th>Visible</th><th class="text-end">Solves</th><th></th></tr></thead><tbody id="admin-challenges"></tbody></table></div></div>
 <h2 class="h5">Flag control</h2>

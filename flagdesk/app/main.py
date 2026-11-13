@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app import config, flags, security, services, sso, store
 from app.db import Base, SessionLocal, engine, get_db
 from app.deps import COOKIE, Principal, client_ip, csrf, hash_guard, principal_optional, require_organizer, require_participant, require_principal, require_service
-from app.models import AuditEvent, AuthSession, Challenge, FlagState, IssuedFlag, LabMapping, Participant, Score, Solve, Submission, now
+from app.models import Announcement, AuditEvent, AuthSession, Challenge, FlagState, IssuedFlag, LabMapping, Participant, Resource, Score, Solve, Submission, now
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
 
@@ -60,6 +60,7 @@ def startup():
         services.seed_reserved(db)
         services.seed_event_and_challenges(db)
         services.bootstrap_organizers(db)
+        services.seed_wordlists(db)
 
 
 @asynccontextmanager
@@ -253,6 +254,146 @@ def _board(db):
 @app.get("/api/scoreboard")
 def scoreboard(p: Principal = Depends(require_participant), db: Session = Depends(get_db)):
     return cache.get("board", lambda: _board(db))
+
+
+def _ann(a):
+    return {"id": a.id, "title": a.title, "body": a.body, "link": a.link, "challenge_id": a.challenge_id, "kind": a.kind, "created_at": a.created_at.isoformat()}
+
+
+def _res(r, full=False):
+    lines = len([x for x in r.content.splitlines() if x.strip()])
+    out = {"id": r.id, "title": r.title, "description": r.description, "filename": r.filename, "lines": lines, "size": len(r.content.encode("utf-8")), "released_labs": r.released_labs or []}
+    if full:
+        out["labs"] = r.labs or []
+        out["released_at"] = r.released_at.isoformat() if r.released_at else None
+    return out
+
+
+@app.get("/api/notifications")
+def notifications(p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
+    return cache.get("notifications", lambda: [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()])
+
+
+@app.get("/api/resources")
+def resources(p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
+    def build():
+        rows = db.scalars(select(Resource).order_by(Resource.created_at, Resource.id)).all()
+        return [_res(r) for r in rows if r.released_labs]
+    return cache.get("resources", build)
+
+
+@app.get("/api/resources/{rid}/download")
+def resource_download(rid: str, p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
+    r = db.get(Resource, rid)
+    if not r or (not r.released_labs and p.role != "organizer"):
+        raise HTTPException(404, "Not found")
+    return Response(r.content, media_type="text/plain; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{r.filename}"', "X-Content-Type-Options": "nosniff"})
+
+
+LINK_RE = re.compile(r"^(https?://[^\s<>\"']+|/[^/\s<>\"'][^\s<>\"']*)$")
+
+
+class AnnouncementIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(default="", max_length=1000)
+    link: str = Field(default="", max_length=500)
+    challenge_id: str = Field(default="", max_length=32)
+
+
+@app.get("/api/admin/announcements")
+def admin_announcements(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    return [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(100)).all()]
+
+
+@app.post("/api/admin/announcements")
+def admin_post_announcement(body: AnnouncementIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    link = body.link.strip()
+    if link and not LINK_RE.match(link):
+        raise HTTPException(422, "Link must start with http://, https:// or /")
+    if body.challenge_id and not db.get(Challenge, body.challenge_id):
+        raise HTTPException(422, "Unknown challenge")
+    a = Announcement(title=body.title.strip(), body=body.body.strip(), link=link, challenge_id=body.challenge_id, kind="link" if link else "message", created_by=o.id)
+    db.add(a)
+    services.audit(db, "announcement.post", o.id, "organizer", a.title[:60], ip=client_ip(request))
+    db.commit()
+    cache.clear()
+    return _ann(a)
+
+
+@app.delete("/api/admin/announcements/{aid}")
+def admin_delete_announcement(aid: int, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    a = db.get(Announcement, aid)
+    if not a:
+        raise HTTPException(404, "Not found")
+    db.delete(a)
+    services.audit(db, "announcement.delete", o.id, "organizer", str(aid), ip=client_ip(request))
+    db.commit()
+    cache.clear()
+    return {"ok": True}
+
+
+class ResourcePatch(BaseModel):
+    released_labs: list[str] = Field(max_length=32)
+
+
+class ResourceIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=300)
+    filename: str = Field(pattern=r"^[A-Za-z0-9._-]{1,80}$")
+    content: str = Field(min_length=1, max_length=200000)
+    labs: list[str] = Field(default_factory=list, max_length=32)
+
+
+def _valid_labs(db, labs):
+    known = set(db.scalars(select(Challenge.id)).all())
+    bad = [x for x in labs if x not in known]
+    if bad:
+        raise HTTPException(422, f"Unknown challenge: {bad[0]}")
+    return sorted(set(labs))
+
+
+@app.get("/api/admin/resources")
+def admin_resources(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    return [_res(r, True) for r in db.scalars(select(Resource).order_by(Resource.created_at, Resource.id)).all()]
+
+
+@app.post("/api/admin/resources")
+def admin_create_resource(body: ResourceIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    labs = _valid_labs(db, body.labs)
+    r = Resource(id="r-" + uuid.uuid4().hex[:12], title=body.title.strip(), description=body.description.strip(), filename=body.filename, content=body.content, labs=labs, released_labs=[])
+    db.add(r)
+    services.audit(db, "resource.create", o.id, "organizer", r.id, ip=client_ip(request))
+    db.commit()
+    return _res(r, True)
+
+
+@app.patch("/api/admin/resources/{rid}")
+def admin_release_resource(rid: str, body: ResourcePatch, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    r = db.get(Resource, rid)
+    if not r:
+        raise HTTPException(404, "Not found")
+    new = _valid_labs(db, body.released_labs)
+    added = [x for x in new if x not in (r.released_labs or [])]
+    r.released_labs = new
+    if added:
+        r.released_at = now()
+        db.add(Announcement(title=f"Wordlist released: {r.title}", body="Available for " + ", ".join(added), link=f"/api/resources/{r.id}/download", challenge_id=added[0] if len(added) == 1 else "", kind="wordlist", created_by=o.id))
+    services.audit(db, "resource.release", o.id, "organizer", r.id, {"labs": new}, client_ip(request))
+    db.commit()
+    cache.clear()
+    return _res(r, True)
+
+
+@app.delete("/api/admin/resources/{rid}")
+def admin_delete_resource(rid: str, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    r = db.get(Resource, rid)
+    if not r:
+        raise HTTPException(404, "Not found")
+    db.delete(r)
+    services.audit(db, "resource.delete", o.id, "organizer", rid, ip=client_ip(request))
+    db.commit()
+    cache.clear()
+    return {"ok": True}
 
 
 @app.get("/api/admin/stats")

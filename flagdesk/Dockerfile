@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 COPY flagdesk/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY flagdesk/app app
+COPY flagdesk/wordlists wordlists
 COPY flagdesk/migrations migrations
 COPY flagdesk/alembic.ini flagdesk/challenges.seed.json ./
 COPY scripts scripts

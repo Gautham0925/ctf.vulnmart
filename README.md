@@ -13,3 +13,7 @@ FlagDesk is the identity provider, SSO, flag authority and scoreboard. VulnMart 
 Tests: `cd flagdesk && python -m pytest tests`, `cd vulnmart/backend && python -m pytest tests`, `python -m pytest tests/e2e` (the last two need the bootstrapped database roles; see docs/OPERATIONS.md).
 
 Training use only. VulnMart contains deliberate vulnerabilities; do not expose it outside an event network you control.
+
+## Notifications and wordlists
+
+FlagDesk has a notification bell for every signed-in user and a Wordlists tab. Organizers push messages or links from the dashboard, and release each wordlist for chosen labs. Releasing a list announces it automatically. Nine lists ship in `flagdesk/wordlists/` and stay hidden until released. Custom lists can be added from the dashboard.

@@ -15,3 +15,5 @@ body{background:#0a0f14}
 .progress-wrap{min-width:260px}
 tr.me td{background:#0f2a2e!important}
 .table{--bs-table-bg:transparent}
+
+.notif-panel{width:min(380px,92vw);max-height:70vh;overflow:auto}.notif-item{padding:.6rem .9rem;border-bottom:1px solid var(--bs-border-color)}.notif-item.new{background:rgba(255,255,255,.04);border-left:3px solid var(--bs-danger)}

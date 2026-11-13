@@ -1,7 +1,7 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const state = { user: null, cfg: {}, challenges: [], tab: "challenges", mode: "login", timers: [], current: null, failures: 0 };
+const state = { notifs: [], resources: [], notifTimer: null, firstNotif: true, user: null, cfg: {}, challenges: [], tab: "challenges", mode: "login", timers: [], current: null, failures: 0 };
 let modal, toast;
 
 async function api(path, opts = {}) {
@@ -55,6 +55,7 @@ function setTab(tab) {
   $$("#tabs .nav-link").forEach((a) => a.classList.toggle("active", a.dataset.tab === tab));
   show(tab);
   if (tab === "challenges") loadChallenges();
+  if (tab === "wordlists") loadWordlists();
   if (tab === "scoreboard") poll(loadBoard, 8000);
   if (tab === "admin") poll(loadAdmin, 10000);
 }
@@ -68,6 +69,7 @@ function enterApp() {
   $("#whoami").textContent = state.user.username;
   $("#open-shop").href = (state.cfg.shop_url || "") + "/api/sso/login";
   if (!org) refreshScore();
+  startNotifs();
   setTab((location.hash || "#challenges").slice(1) || "challenges");
 }
 
@@ -77,6 +79,7 @@ async function refreshScore() {
 
 function leaveApp() {
   clearTimers();
+  stopNotifs();
   state.user = null;
   $("#tabs").hidden = true;
   $("#userbox").hidden = true;
@@ -180,6 +183,7 @@ async function loadAdmin() {
     }
     $("#admin-users").innerHTML = users.map((u) => `<tr data-uid="${esc(u.id)}"><td>${esc(u.username)}</td><td>${u.status === "active" ? "active" : '<span class="badge text-bg-warning">disabled</span>'}</td><td class="text-end mono">${u.solved}</td><td class="text-end mono">${u.score}</td><td class="text-end"><button class="btn btn-sm btn-outline-${u.status === "active" ? "danger" : "success"}" data-act="${u.status === "active" ? "disabled" : "active"}">${u.status === "active" ? "Disable" : "Enable"}</button></td></tr>`).join("");
     $("#admin-subs").innerHTML = subs.map((s) => `<tr><td>${new Date(s.time).toLocaleTimeString()}</td><td>${esc(s.username)}</td><td>${esc(s.challenge)}</td><td>${esc(s.outcome)}</td></tr>`).join("");
+    loadOrganizerComms();
     $("#admin-audit").innerHTML = audit.map((a) => `<tr><td>${new Date(a.time).toLocaleTimeString()}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td></tr>`).join("");
     return true;
   } catch (e) {
@@ -263,6 +267,7 @@ async function init() {
   $("#flag-form").addEventListener("submit", submitFlag);
   $("#challenge-grid").addEventListener("click", (e) => { const c = e.target.closest(".chal"); if (c) openChallenge(c.dataset.id); });
   $("#view-admin").addEventListener("click", adminClick);
+  bindComms();
   $("#flag-ctl").addEventListener("submit", async (e) => {
     e.preventDefault();
     const action = e.submitter && e.submitter.dataset.a;
@@ -280,3 +285,121 @@ async function init() {
 }
 
 init();
+
+const SAFE_LINK = /^(https?:\/\/|\/(?!\/))/;
+const seenKey = () => `fd_seen_${state.user ? state.user.username : ""}`;
+const lastSeen = () => parseInt(localStorage.getItem(seenKey()) || "0", 10) || 0;
+
+function fmtTime(iso) { return new Date(iso).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
+
+function linkHtml(n) {
+  if (!n.link || !SAFE_LINK.test(n.link)) return "";
+  const ext = /^https?:/.test(n.link);
+  const label = n.kind === "wordlist" ? "Download" : "Open";
+  return `<a class="btn btn-sm btn-outline-secondary mt-2" href="${esc(n.link)}"${ext ? ' target="_blank" rel="noopener noreferrer"' : ""}>${label}</a>`;
+}
+
+function renderNotifs() {
+  const seen = lastSeen();
+  const unread = state.notifs.filter((n) => n.id > seen).length;
+  const badge = $("#bell-count");
+  badge.hidden = unread === 0;
+  badge.textContent = unread > 9 ? "9+" : unread;
+  $("#notif-list").innerHTML = state.notifs.length ? state.notifs.map((n) => `<div class="notif-item ${n.id > seen ? "new" : ""}"><div class="d-flex justify-content-between gap-2"><strong>${esc(n.title)}</strong>${n.challenge_id ? `<span class="badge text-bg-secondary mono">${esc(n.challenge_id)}</span>` : ""}</div>${n.body ? `<div class="small mt-1">${esc(n.body)}</div>` : ""}${linkHtml(n)}<div class="small text-secondary mt-1">${fmtTime(n.created_at)}</div></div>`).join("") : '<div class="text-center text-secondary py-4 small">No notifications yet.</div>';
+}
+
+async function loadNotifs() {
+  try {
+    const list = await api("/api/notifications");
+    const prevTop = state.notifs.length ? state.notifs[0].id : 0;
+    state.notifs = list;
+    const top = list.length ? list[0].id : 0;
+    if (!state.firstNotif && top > prevTop) {
+      const fresh = list.filter((n) => n.id > prevTop && n.id > lastSeen());
+      if (fresh.length) notify(fresh[0].title + (fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ""), "info");
+      if (state.tab === "wordlists") loadWordlists();
+    }
+    state.firstNotif = false;
+    renderNotifs();
+    return true;
+  } catch (e) {
+    if (e.status === 401) leaveApp();
+    return false;
+  }
+}
+
+function startNotifs() {
+  stopNotifs();
+  state.firstNotif = true;
+  state.notifFails = 0;
+  const tick = async () => {
+    const ok = await loadNotifs();
+    state.notifFails = ok ? 0 : Math.min((state.notifFails || 0) + 1, 4);
+    state.notifTimer = setTimeout(tick, 15000 * Math.pow(2, state.notifFails) * (0.8 + Math.random() * 0.4));
+  };
+  tick();
+}
+
+function stopNotifs() { clearTimeout(state.notifTimer); state.notifTimer = null; state.notifs = []; }
+
+function markAllRead() {
+  if (state.notifs.length) localStorage.setItem(seenKey(), String(state.notifs[0].id));
+  renderNotifs();
+}
+
+async function loadWordlists() {
+  try { state.resources = await api("/api/resources"); } catch (e) {
+    if (e.status === 401) return leaveApp();
+    return notify(e.message, "danger");
+  }
+  $("#wordlist-grid").innerHTML = state.resources.length ? state.resources.map((r) => `<div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body d-flex flex-column"><h5 class="card-title">${esc(r.title)}</h5><p class="small text-secondary">${esc(r.description)}</p><div class="mb-3">${r.released_labs.map((l) => `<span class="badge text-bg-secondary mono me-1">${esc(l)}</span>`).join("")}</div><div class="mt-auto d-flex justify-content-between align-items-center"><span class="small text-secondary mono">${r.lines} lines</span><a class="btn btn-sm btn-accent" href="/api/resources/${encodeURIComponent(r.id)}/download"><i class="bi bi-download me-1"></i>${esc(r.filename)}</a></div></div></div></div>`).join("") : '<div class="col-12 text-secondary">No wordlists have been released yet. Check back when the organizers announce one.</div>';
+}
+
+async function loadOrganizerComms() {
+  try {
+    const [anns, res] = await Promise.all([api("/api/admin/announcements"), api("/api/admin/resources")]);
+    $("#admin-anns").innerHTML = anns.length ? anns.map((a) => `<tr data-aid="${a.id}"><td>${fmtTime(a.created_at)}</td><td>${esc(a.title)}</td><td class="mono">${esc(a.challenge_id)}</td><td class="mono small">${esc(a.link)}</td><td class="text-end"><button class="btn btn-sm btn-outline-danger" data-delann>Delete</button></td></tr>`).join("") : '<tr><td colspan="5" class="text-secondary text-center">Nothing sent yet.</td></tr>';
+    if (!$("#admin-res").contains(document.activeElement)) {
+      $("#admin-res").innerHTML = res.map((r) => `<tr data-rid="${esc(r.id)}"><td><div>${esc(r.title)}</div><div class="small text-secondary mono">${esc(r.filename)}</div></td><td class="mono">${r.lines}</td><td>${[...new Set([...r.labs, ...r.released_labs])].sort().map((l) => `<label class="me-3 text-nowrap"><input type="checkbox" class="form-check-input me-1" data-lab="${esc(l)}" ${r.released_labs.includes(l) ? "checked" : ""}>${esc(l)}</label>`).join("")}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-accent" data-release>Apply</button> <button class="btn btn-sm btn-outline-secondary" data-releaseall>All</button> <button class="btn btn-sm btn-outline-danger" data-delres>Delete</button></td></tr>`).join("");
+    }
+  } catch (e) {}
+}
+
+async function commsClick(ev) {
+  const t = ev.target;
+  const ann = t.closest("[data-delann]");
+  if (ann) {
+    if (!confirm("Delete this notification?")) return;
+    try { await api(`/api/admin/announcements/${ann.closest("tr").dataset.aid}`, { method: "DELETE" }); loadOrganizerComms(); } catch (e) { notify(e.message, "danger"); }
+    return;
+  }
+  const row = t.closest("#admin-res tr");
+  if (!row) return;
+  const rid = row.dataset.rid;
+  if (t.closest("[data-delres]")) {
+    if (!confirm("Delete this wordlist?")) return;
+    try { await api(`/api/admin/resources/${encodeURIComponent(rid)}`, { method: "DELETE" }); loadOrganizerComms(); } catch (e) { notify(e.message, "danger"); }
+    return;
+  }
+  const all = t.closest("[data-releaseall]");
+  if (!all && !t.closest("[data-release]")) return;
+  if (all) $$("[data-lab]", row).forEach((c) => (c.checked = true));
+  const labs = $$("[data-lab]", row).filter((c) => c.checked).map((c) => c.dataset.lab);
+  try { await api(`/api/admin/resources/${encodeURIComponent(rid)}`, { method: "PATCH", body: { released_labs: labs } }); notify(labs.length ? "Released and announced" : "Hidden from participants"); loadOrganizerComms(); loadNotifs(); } catch (e) { notify(e.message, "danger"); }
+}
+
+function bindComms() {
+  $("#notif-read").addEventListener("click", markAllRead);
+  $("#bell").addEventListener("shown.bs.dropdown", () => setTimeout(markAllRead, 1500));
+  $("#view-admin").addEventListener("click", commsClick);
+  $("#ann-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = { title: $("#an-title").value.trim(), body: $("#an-body").value.trim(), link: $("#an-link").value.trim(), challenge_id: $("#an-chal").value.trim().toUpperCase() };
+    try { await api("/api/admin/announcements", { method: "POST", body }); e.target.reset(); notify("Sent to all participants"); loadOrganizerComms(); loadNotifs(); } catch (er) { notify(er.message, "danger"); }
+  });
+  $("#res-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const labs = $("#rs-labs").value.split(",").map((x) => x.trim().toUpperCase()).filter(Boolean);
+    try { await api("/api/admin/resources", { method: "POST", body: { title: $("#rs-title").value.trim(), filename: $("#rs-file").value.trim(), labs, content: $("#rs-content").value } }); e.target.reset(); notify("Wordlist added (hidden until released)"); loadOrganizerComms(); } catch (er) { notify(er.message, "danger"); }
+  });
+}

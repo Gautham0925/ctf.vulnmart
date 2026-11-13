@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import config, flags, security
-from app.models import AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, ObjectiveEvent, Participant, ReservedUsername, Score, Solve, Submission, now
+from app.models import Announcement, AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, ObjectiveEvent, Participant, Resource, ReservedUsername, Score, Solve, Submission, now
 
 BASE_RESERVED = ["admin", "administrator", "organizer", "organiser", "root", "system", "support", "staff", "moderator", "flagdesk", "vulnmart", "vulnmarket", "ctf", "api", "null", "undefined"]
 VULNMART_PERSONAS = ["admin", "ops.admin", "techhub", "stylehouse", "homenest", "pagebarn", "alice.morgan", "bob.carter", "carol.nguyen", "david.okafor", "erin.kowalski", "frank.silva", "grace.holt", "vault.audit", "ops.recovery"]
@@ -168,3 +168,32 @@ def submit(db, participant_id, challenge_id, submitted):
     db.add(Submission(participant_id=participant_id, challenge_id=challenge_id, correct=True, outcome="solved"))
     db.commit()
     return {"status": "correct", "points": ch.points}
+
+
+WORDLISTS = [
+    ("usernames", "Usernames (enumeration)", "Candidate usernames for the login and password-reset enumeration labs.", "usernames.txt", ["LAB-01", "LAB-02"]),
+    ("xss-reflected", "XSS payloads: reflected", "Payloads for the reflected XSS lab.", "xss-reflected.txt", ["LAB-07"]),
+    ("xss-stored", "XSS payloads: stored", "Payloads for the stored XSS lab.", "xss-stored.txt", ["LAB-08"]),
+    ("xss-dom", "XSS payloads: DOM-based", "Payloads for the DOM XSS lab (URL fragment).", "xss-dom.txt", ["LAB-09"]),
+    ("sqli", "SQL injection payloads", "Probing and UNION payloads for the SQL injection lab.", "sqli.txt", ["LAB-10"]),
+    ("ids-1-100", "Numeric IDs 1-100", "Sequential IDs for object-reference labs.", "ids-1-100.txt", ["LAB-03", "LAB-06"]),
+    ("mass-assignment", "Profile field names", "Field names to try when updating a profile.", "mass-assignment-fields.txt", ["LAB-05"]),
+    ("jwt-tests", "JWT header and claim tests", "Algorithm, key id and claim values to try.", "jwt-tests.txt", ["LAB-11"]),
+    ("api-endpoints", "API paths", "Paths worth requesting while mapping the API.", "api-endpoints.txt", ["LAB-05", "LAB-11", "LAB-12"]),
+]
+
+
+def seed_wordlists(db):
+    base = os.path.join(os.path.dirname(__file__), "..", "wordlists")
+    for rid, title, desc, fname, labs in WORDLISTS:
+        if db.get(Resource, rid):
+            continue
+        path = os.path.join(base, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            db.add(Resource(id=rid, title=title, description=desc, filename=fname, content=fh.read(), labs=labs, released_labs=[]))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
