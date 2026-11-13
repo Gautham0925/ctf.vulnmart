@@ -56,8 +56,8 @@ def env_vulnmart():
 
 def start(workers_fd=2, workers_vm=2):
     procs = []
-    procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(FD_PORT), "--workers", str(workers_fd), "--log-level", "warning"], cwd=os.path.join(ROOT, "flagdesk"), env=env_flagdesk()))
-    procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(VM_PORT), "--workers", str(workers_vm), "--log-level", "warning"], cwd=os.path.join(ROOT, "vulnmart", "backend"), env=env_vulnmart()))
+    procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(FD_PORT), "--workers", str(workers_fd), "--log-level", "warning", "--timeout-keep-alive", "30"], cwd=os.path.join(ROOT, "flagdesk"), env=env_flagdesk()))
+    procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(VM_PORT), "--workers", str(workers_vm), "--log-level", "warning", "--timeout-keep-alive", "30"], cwd=os.path.join(ROOT, "vulnmart", "backend"), env=env_vulnmart()))
     for url in (FD_URL + "/api/health", VM_URL + "/api/health"):
         for _ in range(120):
             try:
