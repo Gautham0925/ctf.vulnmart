@@ -69,7 +69,6 @@ function enterApp() {
   $("#whoami").textContent = state.user.username;
   $("#open-shop").href = (state.cfg.shop_url || "") + "/api/sso/login";
   if (!org) refreshScore();
-  if (!org && !Snd.isEnabled()) $("#sound-gate").hidden = false;
   startNotifs();
   setTab((location.hash || "#challenges").slice(1) || "challenges");
 }
@@ -190,6 +189,7 @@ async function loadAdmin() {
     paintPause(!!sum.paused);
     loadOrganizerComms();
     loadSounds();
+    loadSettings();
     $("#admin-audit").innerHTML = audit.map((a) => `<tr><td>${new Date(a.time).toLocaleTimeString()}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td></tr>`).join("");
     return true;
   } catch (e) {
@@ -275,6 +275,7 @@ async function init() {
   $("#view-admin").addEventListener("click", adminClick);
   bindComms();
   bindSound();
+  bindSettings();
   $("#flag-ctl").addEventListener("submit", async (e) => {
     e.preventDefault();
     const action = e.submitter && e.submitter.dataset.a;
@@ -320,6 +321,7 @@ async function loadNotifs() {
     const data = await api("/api/notifications");
     const list = data.items;
     $("#pause-bar").hidden = !data.paused || isOrganizer();
+    $("#sound-gate").hidden = isOrganizer() || !data.gate || Snd.isEnabled();
     const prevTop = state.notifs.length ? state.notifs[0].id : 0;
     state.notifs = list;
     const top = list.length ? list[0].id : 0;
@@ -478,4 +480,30 @@ function paintPause(paused) {
   b.dataset.paused = paused ? "1" : "0";
   b.className = `btn btn-sm btn-outline-${paused ? "success" : "danger"}`;
   b.innerHTML = paused ? '<i class="bi bi-play-fill me-1"></i>Resume CTF' : '<i class="bi bi-pause-fill me-1"></i>Pause CTF';
+}
+
+document.addEventListener("click", () => { if (!Snd.isEnabled()) Snd.enable(); }, { once: false, capture: true });
+
+async function loadSettings() {
+  try {
+    const s = await api("/api/admin/settings");
+    const sw = $("#gate-switch");
+    if (document.activeElement !== sw) sw.checked = s.sound_gate;
+  } catch (e) {}
+}
+
+function bindSettings() {
+  $("#gate-switch").addEventListener("change", async (e) => {
+    try { await api("/api/admin/settings", { method: "POST", body: { sound_gate: e.target.checked } }); notify(e.target.checked ? "Sound gate on" : "Sound gate off"); } catch (er) { e.target.checked = !e.target.checked; notify(er.message, "danger"); }
+  });
+  $("#reset-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!confirm("This wipes all scores, solves, submissions and flags. It cannot be undone. Continue?")) return;
+    try {
+      const r = await api("/api/admin/reset", { method: "POST", body: { confirm: $("#rst-confirm").value.trim(), totp: $("#rst-totp").value.trim() } });
+      e.target.reset();
+      notify(`CTF reset: ${r.solves} solves and ${r.submissions} submissions cleared`);
+      loadAdmin();
+    } catch (er) { notify(er.message, "danger"); }
+  });
 }

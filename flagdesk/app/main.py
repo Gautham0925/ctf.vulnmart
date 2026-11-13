@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import config, flags, security, services, sso, store
 from app.db import Base, SessionLocal, engine, get_db
 from app.deps import COOKIE, Principal, client_ip, csrf, hash_guard, principal_optional, require_organizer, require_participant, require_principal, require_service
-from app.models import Announcement, AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, Participant, Resource, Score, Sound, Solve, Submission, now
+from app.models import Announcement, AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, ObjectiveEvent, Participant, Resource, Score, Setting, Sound, Solve, Submission, now
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
 
@@ -273,6 +273,11 @@ def _res(r, full=False):
     return out
 
 
+def _setting(db, key, default=""):
+    row = db.get(Setting, key)
+    return row.value if row else default
+
+
 def _is_paused(db):
     ev = db.get(Event, config.EVENT_ID)
     return bool(ev and not ev.active)
@@ -282,7 +287,7 @@ def _is_paused(db):
 def notifications(p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
     def build():
         ev = db.get(Event, config.EVENT_ID)
-        return {"items": [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()], "paused": bool(ev and not ev.active)}
+        return {"items": [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()], "paused": bool(ev and not ev.active), "gate": _setting(db, "sound_gate", "1") == "1"}
     return cache.get("notifications", build)
 
 
@@ -419,6 +424,67 @@ def admin_delete_resource(rid: str, request: Request, o: Principal = Depends(req
     db.commit()
     cache.clear()
     return {"ok": True}
+
+
+class SettingsIn(BaseModel):
+    sound_gate: bool
+
+
+@app.get("/api/admin/settings")
+def admin_settings(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    return {"sound_gate": _setting(db, "sound_gate", "1") == "1"}
+
+
+@app.post("/api/admin/settings")
+def admin_set_settings(body: SettingsIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    row = db.get(Setting, "sound_gate")
+    val = "1" if body.sound_gate else "0"
+    if row:
+        row.value = val
+    else:
+        db.add(Setting(key="sound_gate", value=val))
+    services.audit(db, "settings.sound_gate", o.id, "organizer", val, ip=client_ip(request))
+    db.commit()
+    cache.clear()
+    return {"sound_gate": body.sound_gate}
+
+
+class ResetIn(BaseModel):
+    confirm: str = Field(max_length=20)
+    totp: str = Field(min_length=6, max_length=6)
+
+
+@app.post("/api/admin/reset")
+def admin_reset(body: ResetIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    ip = client_ip(request)
+    if too_many(db, f"rl:reset:{o.id}", 5, 900):
+        raise HTTPException(429, "Too many attempts. Try again later.")
+    if body.confirm != "RESET":
+        raise HTTPException(422, "Type RESET to confirm")
+    org = db.get(Participant, o.id)
+    with hash_guard():
+        ok = bool(org and security.verify_totp(org.totp_secret_enc, body.totp))
+    if not ok:
+        services.audit(db, "ctf.reset_denied", o.id, "organizer", "bad_totp", ip=ip)
+        db.commit()
+        raise HTTPException(401, "Authenticator code is not valid")
+    counts = {
+        "solves": db.query(Solve).delete(synchronize_session=False),
+        "scores": db.query(Score).delete(synchronize_session=False),
+        "submissions": db.query(Submission).delete(synchronize_session=False),
+        "issued_flags": db.query(IssuedFlag).delete(synchronize_session=False),
+        "objective_events": db.query(ObjectiveEvent).delete(synchronize_session=False),
+        "announcements": db.query(Announcement).delete(synchronize_session=False),
+        "wordlists_hidden": db.query(Resource).update({Resource.released_labs: [], Resource.released_at: None}, synchronize_session=False),
+        "flags_rotated": db.query(FlagState).update({FlagState.version: FlagState.version + 1, FlagState.revoked: False, FlagState.updated_at: now()}, synchronize_session=False),
+    }
+    ev = db.get(Event, config.EVENT_ID)
+    if ev:
+        ev.active = True
+    services.audit(db, "ctf.reset", o.id, "organizer", config.EVENT_ID, counts, ip)
+    db.commit()
+    cache.clear()
+    return {"ok": True, **counts}
 
 
 class PauseIn(BaseModel):

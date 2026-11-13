@@ -205,3 +205,10 @@ class Sound(Base):
     mime: Mapped[str] = mapped_column(String(32))
     data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+    __table_args__ = {"schema": "flagdesk"}
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200), default="")

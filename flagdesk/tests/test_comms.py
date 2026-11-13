@@ -124,3 +124,43 @@ def test_pause_blocks_submissions_and_notifies(client):
     assert c.get("/api/notifications").json()["paused"] is False
     assert c.post("/api/challenges/LAB-01/submit", json={"flag": flag}, headers=H).json()["status"] == "correct"
     assert make_user(client, "pause_user2")[0].post("/api/admin/pause", json={"paused": True}, headers=H).status_code == 404
+
+
+def test_sound_gate_setting(client):
+    c, _ = make_user(client, "gate_user1")
+    assert c.get("/api/notifications").json()["gate"] is True
+    o = org()
+    assert o.get("/api/admin/settings").json() == {"sound_gate": True}
+    assert o.post("/api/admin/settings", json={"sound_gate": False}, headers=H).json() == {"sound_gate": False}
+    assert c.get("/api/notifications").json()["gate"] is False
+    assert o.post("/api/admin/settings", json={"sound_gate": True}, headers=H).status_code == 200
+    assert c.get("/api/notifications").json()["gate"] is True
+    assert c.post("/api/admin/settings", json={"sound_gate": False}, headers=H).status_code == 404
+
+
+def test_reset_requires_confirmation_and_totp_then_wipes_progress(client):
+    from tests.test_core import issue
+    c, pid = make_user(client, "reset_user1")
+    flag = issue(client, pid, "LAB-01")
+    assert c.post("/api/challenges/LAB-01/submit", json={"flag": flag}, headers=H).json()["status"] == "correct"
+    o = org()
+    o.post("/api/admin/announcements", json={"title": "before reset"}, headers=H)
+    o.patch("/api/admin/resources/sqli", json={"released_labs": ["LAB-10"]}, headers=H)
+    o.post("/api/admin/pause", json={"paused": True}, headers=H)
+    good = pyotp.TOTP("JBSWY3DPEHPK3PXP").now()
+    assert o.post("/api/admin/reset", json={"confirm": "reset", "totp": good}, headers=H).status_code == 422
+    assert o.post("/api/admin/reset", json={"confirm": "RESET", "totp": "000000"}, headers=H).status_code == 401
+    assert c.post("/api/admin/reset", json={"confirm": "RESET", "totp": good}, headers=H).status_code == 404
+    assert c.get("/api/me").json()["score"] == 100
+    r = o.post("/api/admin/reset", json={"confirm": "RESET", "totp": good}, headers=H)
+    assert r.status_code == 200 and r.json()["solves"] >= 1 and r.json()["announcements"] >= 1
+    me = c.get("/api/me").json()
+    assert me["score"] == 0 and me["solved"] == 0
+    n = c.get("/api/notifications").json()
+    assert n["paused"] is False and n["items"] == []
+    assert c.get("/api/resources").json() == []
+    assert c.post("/api/challenges/LAB-01/submit", json={"flag": flag}, headers=H).json()["status"] == "incorrect"
+    newflag = issue(client, pid, "LAB-01")
+    assert newflag != flag
+    assert c.post("/api/challenges/LAB-01/submit", json={"flag": newflag}, headers=H).json()["status"] == "correct"
+    assert any(a["action"] == "ctf.reset" for a in o.get("/api/admin/audit").json())
