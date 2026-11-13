@@ -1,0 +1,8 @@
+__pycache__/
+.pytest_cache/
+node_modules/
+.env
+*.pem
+data/
+backups/
+reports/
