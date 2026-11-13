@@ -1,3 +1,4 @@
+import base64
 import csv
 import io
 import os
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import config, flags, security, services, sso, store
 from app.db import Base, SessionLocal, engine, get_db
 from app.deps import COOKIE, Principal, client_ip, csrf, hash_guard, principal_optional, require_organizer, require_participant, require_principal, require_service
-from app.models import Announcement, AuditEvent, AuthSession, Challenge, FlagState, IssuedFlag, LabMapping, Participant, Resource, Score, Solve, Submission, now
+from app.models import Announcement, AuditEvent, AuthSession, Challenge, Event, FlagState, IssuedFlag, LabMapping, Participant, Resource, Score, Sound, Solve, Submission, now
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
 
@@ -229,6 +230,9 @@ def submit(challenge_id: str, body: FlagIn, p: Principal = Depends(require_parti
     wrong_key = f"rl:wrong:{p.id}"
     if int(store.get(wrong_key) or 0) >= config.WRONG_LIMIT:
         raise HTTPException(429, "Too many wrong attempts. Wait a minute.")
+    ev = db.get(Event, config.EVENT_ID)
+    if ev is not None and not ev.active:
+        raise HTTPException(423, "The CTF is paused. Submissions are frozen.")
     result = services.submit(db, p.id, challenge_id, body.flag.strip())
     if result["status"] == "incorrect":
         store.incr(wrong_key, config.WRONG_WINDOW)
@@ -257,7 +261,7 @@ def scoreboard(p: Principal = Depends(require_participant), db: Session = Depend
 
 
 def _ann(a):
-    return {"id": a.id, "title": a.title, "body": a.body, "link": a.link, "challenge_id": a.challenge_id, "kind": a.kind, "created_at": a.created_at.isoformat()}
+    return {"id": a.id, "title": a.title, "body": a.body, "link": a.link, "challenge_id": a.challenge_id, "kind": a.kind, "sound": a.sound or "", "created_at": a.created_at.isoformat()}
 
 
 def _res(r, full=False):
@@ -269,9 +273,17 @@ def _res(r, full=False):
     return out
 
 
+def _is_paused(db):
+    ev = db.get(Event, config.EVENT_ID)
+    return bool(ev and not ev.active)
+
+
 @app.get("/api/notifications")
 def notifications(p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
-    return cache.get("notifications", lambda: [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()])
+    def build():
+        ev = db.get(Event, config.EVENT_ID)
+        return {"items": [_ann(a) for a in db.scalars(select(Announcement).order_by(Announcement.id.desc()).limit(50)).all()], "paused": bool(ev and not ev.active)}
+    return cache.get("notifications", build)
 
 
 @app.get("/api/resources")
@@ -298,6 +310,18 @@ class AnnouncementIn(BaseModel):
     body: str = Field(default="", max_length=1000)
     link: str = Field(default="", max_length=500)
     challenge_id: str = Field(default="", max_length=32)
+    sound: str = Field(default="", max_length=40, pattern=r"^[a-z0-9:_-]*$")
+
+
+BUILTIN_SOUNDS = {"", "silent", "ding", "fahhh", "anna", "trombone", "happy", "boing", "fanfare", "siren", "bruh"}
+
+
+def _check_sound(db, sound):
+    if sound in BUILTIN_SOUNDS:
+        return
+    if sound.startswith("custom:") and db.get(Sound, sound[7:]):
+        return
+    raise HTTPException(422, "Unknown sound")
 
 
 @app.get("/api/admin/announcements")
@@ -312,7 +336,8 @@ def admin_post_announcement(body: AnnouncementIn, request: Request, o: Principal
         raise HTTPException(422, "Link must start with http://, https:// or /")
     if body.challenge_id and not db.get(Challenge, body.challenge_id):
         raise HTTPException(422, "Unknown challenge")
-    a = Announcement(title=body.title.strip(), body=body.body.strip(), link=link, challenge_id=body.challenge_id, kind="link" if link else "message", created_by=o.id)
+    _check_sound(db, body.sound)
+    a = Announcement(title=body.title.strip(), body=body.body.strip(), link=link, challenge_id=body.challenge_id, kind="link" if link else "message", sound=body.sound, created_by=o.id)
     db.add(a)
     services.audit(db, "announcement.post", o.id, "organizer", a.title[:60], ip=client_ip(request))
     db.commit()
@@ -377,7 +402,7 @@ def admin_release_resource(rid: str, body: ResourcePatch, request: Request, o: P
     r.released_labs = new
     if added:
         r.released_at = now()
-        db.add(Announcement(title=f"Wordlist released: {r.title}", body="Available for " + ", ".join(added), link=f"/api/resources/{r.id}/download", challenge_id=added[0] if len(added) == 1 else "", kind="wordlist", created_by=o.id))
+        db.add(Announcement(title=f"Wordlist released: {r.title}", body="Available for " + ", ".join(added), link=f"/api/resources/{r.id}/download", challenge_id=added[0] if len(added) == 1 else "", kind="wordlist", sound="happy", created_by=o.id))
     services.audit(db, "resource.release", o.id, "organizer", r.id, {"labs": new}, client_ip(request))
     db.commit()
     cache.clear()
@@ -396,9 +421,82 @@ def admin_delete_resource(rid: str, request: Request, o: Principal = Depends(req
     return {"ok": True}
 
 
+class PauseIn(BaseModel):
+    paused: bool
+    sound: str = Field(default="", max_length=40, pattern=r"^[a-z0-9:_-]*$")
+
+
+@app.get("/api/admin/pause")
+def admin_pause_state(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    ev = db.get(Event, config.EVENT_ID)
+    return {"paused": bool(ev and not ev.active)}
+
+
+@app.post("/api/admin/pause")
+def admin_pause(body: PauseIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    ev = db.get(Event, config.EVENT_ID)
+    if not ev:
+        raise HTTPException(404, "Not found")
+    _check_sound(db, body.sound)
+    if ev.active == (not body.paused):
+        return {"paused": body.paused}
+    ev.active = not body.paused
+    db.add(Announcement(title="CTF paused: submissions are frozen" if body.paused else "CTF resumed: good luck", body="Scores are frozen until the organizers resume." if body.paused else "Submissions are open again.", kind="pause", sound=body.sound, created_by=o.id))
+    services.audit(db, "ctf.pause" if body.paused else "ctf.resume", o.id, "organizer", config.EVENT_ID, ip=client_ip(request))
+    db.commit()
+    cache.clear()
+    return {"paused": body.paused}
+
+
+class SoundIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    mime: str = Field(pattern=r"^audio/(mpeg|ogg|wav|x-wav|mp4|webm)$")
+    data_b64: str = Field(min_length=8, max_length=560000)
+
+
+@app.get("/api/admin/sounds")
+def admin_sounds(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    return [{"id": s_.id, "name": s_.name, "mime": s_.mime, "size": len(s_.data)} for s_ in db.scalars(select(Sound).order_by(Sound.created_at)).all()]
+
+
+@app.post("/api/admin/sounds")
+def admin_add_sound(body: SoundIn, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    try:
+        raw = base64.b64decode(body.data_b64, validate=True)
+    except Exception:
+        raise HTTPException(422, "Invalid audio data")
+    if not raw or len(raw) > 400000:
+        raise HTTPException(422, "Audio must be under 400 KB")
+    s_ = Sound(id=uuid.uuid4().hex[:16], name=body.name.strip(), mime=body.mime, data=raw)
+    db.add(s_)
+    services.audit(db, "sound.add", o.id, "organizer", s_.id, ip=client_ip(request))
+    db.commit()
+    return {"id": s_.id, "name": s_.name}
+
+
+@app.delete("/api/admin/sounds/{sid}")
+def admin_delete_sound(sid: str, request: Request, o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
+    s_ = db.get(Sound, sid)
+    if not s_:
+        raise HTTPException(404, "Not found")
+    db.delete(s_)
+    services.audit(db, "sound.delete", o.id, "organizer", sid, ip=client_ip(request))
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/sounds/{sid}")
+def get_sound(sid: str, p: Principal = Depends(require_principal), db: Session = Depends(get_db)):
+    s_ = db.get(Sound, sid)
+    if not s_:
+        raise HTTPException(404, "Not found")
+    return Response(s_.data, media_type=s_.mime, headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"})
+
+
 @app.get("/api/admin/stats")
 def admin_stats(o: Principal = Depends(require_organizer), db: Session = Depends(get_db)):
     return {
+        "paused": _is_paused(db),
         "participants": db.scalar(select(func.count()).select_from(Participant).where(Participant.role == "participant")),
         "solves": db.scalar(select(func.count()).select_from(Solve)),
         "submissions": db.scalar(select(func.count()).select_from(Submission)),

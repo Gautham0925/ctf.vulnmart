@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import BigInteger, Boolean, LargeBinary, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -178,6 +178,7 @@ class Announcement(Base):
     link: Mapped[str] = mapped_column(String(500), default="")
     challenge_id: Mapped[str] = mapped_column(String(32), default="")
     kind: Mapped[str] = mapped_column(String(16), default="message")
+    sound: Mapped[str] = mapped_column(String(40), default="", server_default="")
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
 
@@ -194,3 +195,13 @@ class Resource(Base):
     released_labs: Mapped[list] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
     released_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+
+
+class Sound(Base):
+    __tablename__ = "sounds"
+    __table_args__ = {"schema": "flagdesk"}
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    name: Mapped[str] = mapped_column(String(60))
+    mime: Mapped[str] = mapped_column(String(32))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(TS, default=now)

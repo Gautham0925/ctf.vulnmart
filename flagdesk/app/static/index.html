@@ -21,7 +21,7 @@
 <div class="d-flex align-items-center gap-3" id="userbox" hidden>
 <div class="dropdown" id="bell-wrap">
 <button class="btn btn-sm btn-outline-secondary position-relative" id="bell" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Notifications"><i class="bi bi-bell"></i><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="bell-count" hidden>0</span></button>
-<div class="dropdown-menu dropdown-menu-end p-0 notif-panel" id="notif-panel"><div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom border-secondary-subtle"><strong>Notifications</strong><button class="btn btn-sm btn-link p-0" id="notif-read">Mark all read</button></div><div id="notif-list"></div></div>
+<div class="dropdown-menu dropdown-menu-end p-0 notif-panel" id="notif-panel"><div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom border-secondary-subtle"><strong>Notifications</strong><span><button class="btn btn-sm btn-link p-0 me-2" id="notif-mute" title="Mute sounds"><i class="bi bi-volume-up"></i></button><button class="btn btn-sm btn-link p-0" id="notif-read">Mark all read</button></span></div><div id="notif-list"></div></div>
 </div>
 <span class="badge text-bg-dark border border-secondary-subtle fs-6 mono" id="score-badge"></span>
 <span class="text-secondary" id="whoami"></span>
@@ -29,6 +29,8 @@
 </div>
 </div>
 </nav>
+<div id="pause-bar" class="pause-bar" hidden><i class="bi bi-pause-circle-fill me-2"></i>The CTF is paused. Submissions are frozen until the organizers resume.</div>
+<div id="sound-gate" class="sound-gate" hidden><div class="sound-gate-card"><div class="sound-gate-emoji">&#128683;</div><h1>ACCESS DENIED</h1><p class="lead">You have <strong>NOT</strong> been allowed in.</p><p>Turn on the sound first. Every announcement here comes with a very important noise.</p><button class="btn btn-light btn-lg" id="sound-enable"><i class="bi bi-volume-up-fill me-2"></i>Fine, enable sound</button></div></div>
 <main class="container py-4">
 <section id="view-auth" hidden>
 <div class="row justify-content-center"><div class="col-md-6 col-lg-5">
@@ -73,6 +75,7 @@
 
 <section id="view-scoreboard" hidden>
 <div class="d-flex justify-content-between align-items-end mb-3"><div><h1 class="h3 mb-1">Scoreboard</h1><p class="text-secondary mb-0">Updates every few seconds. <span id="board-count"></span></p></div><span class="small text-secondary" id="board-updated"></span></div>
+<div class="row g-3 mb-4 align-items-end" id="podium"></div>
 <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:80px">Rank</th><th>Player</th><th class="text-end">Solved</th><th class="text-end">Score</th></tr></thead><tbody id="board-body"></tbody></table></div></div>
 </section>
 
@@ -83,17 +86,20 @@
 
 <section id="view-admin" hidden>
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><h1 class="h3 mb-0">Organizer dashboard</h1>
-<div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="/api/admin/export.csv"><i class="bi bi-download me-1"></i>Export CSV</a></div></div>
+<div class="d-flex gap-2"><button class="btn btn-sm btn-outline-danger" id="pause-btn"><i class="bi bi-pause-fill me-1"></i>Pause CTF</button><a class="btn btn-sm btn-outline-secondary" href="/api/admin/export.csv"><i class="bi bi-download me-1"></i>Export CSV</a></div></div>
 <div class="row g-3 mb-4" id="admin-stats"></div>
 <h2 class="h5">Send a notification</h2>
 <div class="card mb-4"><div class="card-body"><form class="row g-2" id="ann-form">
 <div class="col-md-4"><input class="form-control" id="an-title" placeholder="Title" maxlength="120" required></div>
 <div class="col-md-5"><input class="form-control" id="an-body" placeholder="Message (optional)" maxlength="1000"></div>
 <div class="col-md-3"><input class="form-control mono" id="an-chal" placeholder="Lab, e.g. LAB-07 (optional)" maxlength="32"></div>
-<div class="col-md-9"><input class="form-control" id="an-link" placeholder="Link (optional): https://... or /api/resources/.../download" maxlength="500"></div>
+<div class="col-md-6"><input class="form-control" id="an-link" placeholder="Link (optional): https://... or /api/resources/.../download" maxlength="500"></div>
+<div class="col-md-3"><div class="input-group"><select class="form-select" id="an-sound"></select><button class="btn btn-outline-secondary" type="button" id="an-preview" title="Preview sound"><i class="bi bi-play-fill"></i></button></div></div>
 <div class="col-md-3"><button class="btn btn-accent w-100" type="submit"><i class="bi bi-megaphone me-1"></i>Push to everyone</button></div>
 </form>
 <div class="table-responsive mt-3"><table class="table table-sm align-middle mb-0"><thead><tr><th>Time</th><th>Title</th><th>Lab</th><th>Link</th><th></th></tr></thead><tbody id="admin-anns"></tbody></table></div></div></div>
+<h2 class="h5">Custom sounds</h2>
+<div class="card mb-4"><div class="card-body"><form class="row g-2" id="snd-form"><div class="col-md-4"><input class="form-control" id="sn-name" placeholder="Sound name" maxlength="60" required></div><div class="col-md-5"><input class="form-control" id="sn-file" type="file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/webm" required></div><div class="col-md-3"><button class="btn btn-outline-secondary w-100" type="submit">Upload (max 400 KB)</button></div></form><div class="small text-secondary mt-2">Upload only audio you have the rights to use.</div><div id="snd-list" class="mt-2"></div></div></div>
 <h2 class="h5">Wordlists</h2>
 <div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Wordlist</th><th>Lines</th><th>Release for labs</th><th></th></tr></thead><tbody id="admin-res"></tbody></table></div>
 <div class="card-body border-top border-secondary-subtle"><form class="row g-2" id="res-form">
@@ -131,6 +137,7 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-3"><div class="toast align-items-center border-0" id="toast" role="alert"><div class="d-flex"><div class="toast-body" id="toast-body"></div><button class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/sounds.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

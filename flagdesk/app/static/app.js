@@ -69,6 +69,7 @@ function enterApp() {
   $("#whoami").textContent = state.user.username;
   $("#open-shop").href = (state.cfg.shop_url || "") + "/api/sso/login";
   if (!org) refreshScore();
+  if (!org && !Snd.isEnabled()) $("#sound-gate").hidden = false;
   startNotifs();
   setTab((location.hash || "#challenges").slice(1) || "challenges");
 }
@@ -80,6 +81,8 @@ async function refreshScore() {
 function leaveApp() {
   clearTimers();
   stopNotifs();
+  $("#sound-gate").hidden = true;
+  $("#pause-bar").hidden = true;
   state.user = null;
   $("#tabs").hidden = true;
   $("#userbox").hidden = true;
@@ -165,6 +168,7 @@ async function loadBoard() {
   try {
     const board = await api("/api/scoreboard");
     $("#board-body").innerHTML = board.rows.length ? board.rows.map((r) => `<tr class="${r.username === state.user.username ? "me" : ""}"><td class="mono">${r.rank}</td><td>${esc(r.username)}</td><td class="text-end mono">${r.solved}</td><td class="text-end mono">${r.score}</td></tr>`).join("") : '<tr><td colspan="4" class="text-center text-secondary py-4">No solves yet.</td></tr>';
+    renderPodium(board.rows);
     $("#board-count").textContent = `${board.participants} participants`;
     $("#board-updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
     return true;
@@ -183,7 +187,9 @@ async function loadAdmin() {
     }
     $("#admin-users").innerHTML = users.map((u) => `<tr data-uid="${esc(u.id)}"><td>${esc(u.username)}</td><td>${u.status === "active" ? "active" : '<span class="badge text-bg-warning">disabled</span>'}</td><td class="text-end mono">${u.solved}</td><td class="text-end mono">${u.score}</td><td class="text-end"><button class="btn btn-sm btn-outline-${u.status === "active" ? "danger" : "success"}" data-act="${u.status === "active" ? "disabled" : "active"}">${u.status === "active" ? "Disable" : "Enable"}</button></td></tr>`).join("");
     $("#admin-subs").innerHTML = subs.map((s) => `<tr><td>${new Date(s.time).toLocaleTimeString()}</td><td>${esc(s.username)}</td><td>${esc(s.challenge)}</td><td>${esc(s.outcome)}</td></tr>`).join("");
+    paintPause(!!sum.paused);
     loadOrganizerComms();
+    loadSounds();
     $("#admin-audit").innerHTML = audit.map((a) => `<tr><td>${new Date(a.time).toLocaleTimeString()}</td><td>${esc(a.action)}</td><td>${esc(a.target)}</td></tr>`).join("");
     return true;
   } catch (e) {
@@ -268,6 +274,7 @@ async function init() {
   $("#challenge-grid").addEventListener("click", (e) => { const c = e.target.closest(".chal"); if (c) openChallenge(c.dataset.id); });
   $("#view-admin").addEventListener("click", adminClick);
   bindComms();
+  bindSound();
   $("#flag-ctl").addEventListener("submit", async (e) => {
     e.preventDefault();
     const action = e.submitter && e.submitter.dataset.a;
@@ -310,13 +317,18 @@ function renderNotifs() {
 
 async function loadNotifs() {
   try {
-    const list = await api("/api/notifications");
+    const data = await api("/api/notifications");
+    const list = data.items;
+    $("#pause-bar").hidden = !data.paused || isOrganizer();
     const prevTop = state.notifs.length ? state.notifs[0].id : 0;
     state.notifs = list;
     const top = list.length ? list[0].id : 0;
     if (!state.firstNotif && top > prevTop) {
       const fresh = list.filter((n) => n.id > prevTop && n.id > lastSeen());
-      if (fresh.length) notify(fresh[0].title + (fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ""), "info");
+      if (fresh.length) {
+        notify(fresh[0].title + (fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ""), "info");
+        if (!isOrganizer()) Snd.play(fresh[0].sound);
+      }
       if (state.tab === "wordlists") loadWordlists();
     }
     state.firstNotif = false;
@@ -394,7 +406,7 @@ function bindComms() {
   $("#view-admin").addEventListener("click", commsClick);
   $("#ann-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const body = { title: $("#an-title").value.trim(), body: $("#an-body").value.trim(), link: $("#an-link").value.trim(), challenge_id: $("#an-chal").value.trim().toUpperCase() };
+    const body = { title: $("#an-title").value.trim(), body: $("#an-body").value.trim(), link: $("#an-link").value.trim(), challenge_id: $("#an-chal").value.trim().toUpperCase(), sound: $("#an-sound").value };
     try { await api("/api/admin/announcements", { method: "POST", body }); e.target.reset(); notify("Sent to all participants"); loadOrganizerComms(); loadNotifs(); } catch (er) { notify(er.message, "danger"); }
   });
   $("#res-form").addEventListener("submit", async (e) => {
@@ -402,4 +414,68 @@ function bindComms() {
     const labs = $("#rs-labs").value.split(",").map((x) => x.trim().toUpperCase()).filter(Boolean);
     try { await api("/api/admin/resources", { method: "POST", body: { title: $("#rs-title").value.trim(), filename: $("#rs-file").value.trim(), labs, content: $("#rs-content").value } }); e.target.reset(); notify("Wordlist added (hidden until released)"); loadOrganizerComms(); } catch (er) { notify(er.message, "danger"); }
   });
+}
+
+function renderPodium(rows) {
+  const medals = ["&#129351;", "&#129352;", "&#129353;"];
+  const slot = (i) => {
+    const r = rows[i];
+    const body = r ? `<div class="fw-semibold fs-5 text-truncate">${esc(r.username)}</div><div class="mono text-secondary">${r.score} pts &middot; ${r.solved} solved</div>` : '<div class="text-secondary">&mdash;</div>';
+    return `<div class="col-4"><div class="card podium-card podium-${i + 1}"><div class="card-body"><div class="podium-medal">${medals[i]}</div><div class="small text-secondary mb-1">#${i + 1}</div>${body}</div></div></div>`;
+  };
+  $("#podium").innerHTML = slot(1) + slot(0) + slot(2);
+}
+
+function fillSoundSelect(custom) {
+  const sel = $("#an-sound");
+  const keep = sel.value;
+  sel.innerHTML = Object.entries(SOUND_LABELS).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("") + custom.map((s) => `<option value="custom:${esc(s.id)}">Custom: ${esc(s.name)}</option>`).join("");
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+
+async function loadSounds() {
+  try {
+    const list = await api("/api/admin/sounds");
+    fillSoundSelect(list);
+    $("#snd-list").innerHTML = list.map((s) => `<span class="badge text-bg-dark border border-secondary-subtle me-2 mb-1 p-2" data-sid="${esc(s.id)}">${esc(s.name)} <button class="btn btn-sm btn-link p-0 ms-1" data-sprev><i class="bi bi-play-fill"></i></button><button class="btn btn-sm btn-link text-danger p-0 ms-1" data-sdel><i class="bi bi-x-lg"></i></button></span>`).join("");
+  } catch (e) {}
+}
+
+function bindSound() {
+  $("#sound-enable").addEventListener("click", () => { Snd.enable(); Snd.play("ding"); $("#sound-gate").hidden = true; });
+  const mute = $("#notif-mute");
+  const paintMute = () => (mute.innerHTML = Snd.isMuted() ? '<i class="bi bi-volume-mute"></i>' : '<i class="bi bi-volume-up"></i>');
+  mute.addEventListener("click", () => { Snd.setMuted(!Snd.isMuted()); paintMute(); });
+  paintMute();
+  fillSoundSelect([]);
+  $("#an-preview").addEventListener("click", () => Snd.preview($("#an-sound").value));
+  $("#snd-list").addEventListener("click", async (e) => {
+    const box = e.target.closest("[data-sid]");
+    if (!box) return;
+    if (e.target.closest("[data-sprev]")) return Snd.preview(`custom:${box.dataset.sid}`);
+    if (e.target.closest("[data-sdel]")) {
+      if (!confirm("Delete this sound?")) return;
+      try { await api(`/api/admin/sounds/${encodeURIComponent(box.dataset.sid)}`, { method: "DELETE" }); loadSounds(); } catch (er) { notify(er.message, "danger"); }
+    }
+  });
+  $("#snd-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = $("#sn-file").files[0];
+    if (!f) return;
+    if (f.size > 400000) return notify("Audio must be under 400 KB", "danger");
+    const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(f); });
+    try { await api("/api/admin/sounds", { method: "POST", body: { name: $("#sn-name").value.trim(), mime: f.type, data_b64: b64 } }); e.target.reset(); notify("Sound added"); loadSounds(); } catch (er) { notify(er.message, "danger"); }
+  });
+  $("#pause-btn").addEventListener("click", async () => {
+    const paused = $("#pause-btn").dataset.paused === "1";
+    if (!confirm(paused ? "Resume the CTF and reopen submissions?" : "Pause the CTF? Flag submissions will be frozen for everyone.")) return;
+    try { await api("/api/admin/pause", { method: "POST", body: { paused: !paused, sound: paused ? "fanfare" : "trombone" } }); notify(paused ? "CTF resumed" : "CTF paused"); loadAdmin(); } catch (er) { notify(er.message, "danger"); }
+  });
+}
+
+function paintPause(paused) {
+  const b = $("#pause-btn");
+  b.dataset.paused = paused ? "1" : "0";
+  b.className = `btn btn-sm btn-outline-${paused ? "success" : "danger"}`;
+  b.innerHTML = paused ? '<i class="bi bi-play-fill me-1"></i>Resume CTF' : '<i class="bi bi-pause-fill me-1"></i>Pause CTF';
 }

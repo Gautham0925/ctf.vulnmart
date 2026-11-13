@@ -17,3 +17,17 @@ tr.me td{background:#0f2a2e!important}
 .table{--bs-table-bg:transparent}
 
 .notif-panel{width:min(380px,92vw);max-height:70vh;overflow:auto}.notif-item{padding:.6rem .9rem;border-bottom:1px solid var(--bs-border-color)}.notif-item.new{background:rgba(255,255,255,.04);border-left:3px solid var(--bs-danger)}
+
+.pause-bar{background:#b4232c;color:#fff;text-align:center;padding:.5rem 1rem;font-weight:600;position:sticky;top:56px;z-index:1020}
+.sound-gate{position:fixed;inset:0;z-index:3000;background:#c1121f;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:1.5rem;animation:gatepulse 1.2s ease-in-out infinite}
+.sound-gate[hidden]{display:none}
+.sound-gate-card{max-width:520px}
+.sound-gate-card h1{font-size:clamp(2.2rem,8vw,4rem);font-weight:900;letter-spacing:.05em;animation:gateshake .6s infinite}
+.sound-gate-emoji{font-size:5rem;line-height:1}
+@keyframes gatepulse{0%,100%{background:#c1121f}50%{background:#7f0d14}}
+@keyframes gateshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.podium-card{text-align:center;border-top:4px solid var(--bs-secondary)}
+.podium-1{border-top-color:#f5c518;padding-top:1.5rem}
+.podium-2{border-top-color:#c0c7d1}
+.podium-3{border-top-color:#cd7f32}
+.podium-medal{font-size:2.2rem;line-height:1}
