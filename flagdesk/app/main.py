@@ -64,6 +64,8 @@ def startup():
 
 @asynccontextmanager
 async def lifespan(app):
+    from anyio import to_thread
+    to_thread.current_default_thread_limiter().total_tokens = config.THREADPOOL_SIZE
     startup()
     yield
 

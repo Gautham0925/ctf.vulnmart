@@ -1,3 +1,4 @@
+import threading
 import time
 
 from app.core.config import get_settings
@@ -6,22 +7,37 @@ from app.models import AppSetting
 
 settings = get_settings()
 _cache = {"value": None, "at": 0.0}
+_lock = threading.Lock()
+TTL = 2.0
 
 
 def current_mode() -> str:
     if not settings.training_allowed:
         return "secure"
-    now = time.monotonic()
-    if _cache["value"] is not None and now - _cache["at"] < 1.0:
-        return _cache["value"]
-    with SessionLocal() as db:
-        row = db.get(AppSetting, "mode")
-        value = row.value if row else settings.app_mode
-    if value not in ("training", "secure"):
-        value = "secure"
-    _cache["value"] = value
-    _cache["at"] = now
-    return value
+    stale = _cache["value"]
+    if stale is not None and time.monotonic() - _cache["at"] < TTL:
+        return stale
+    if not _lock.acquire(blocking=stale is None):
+        return stale
+    try:
+        if _cache["value"] is not None and time.monotonic() - _cache["at"] < TTL:
+            return _cache["value"]
+        try:
+            with SessionLocal() as db:
+                row = db.get(AppSetting, "mode")
+                value = row.value if row else settings.app_mode
+        except Exception:
+            if stale is not None:
+                _cache["at"] = time.monotonic()
+                return stale
+            raise
+        if value not in ("training", "secure"):
+            value = "secure"
+        _cache["value"] = value
+        _cache["at"] = time.monotonic()
+        return value
+    finally:
+        _lock.release()
 
 
 def is_training() -> bool:

@@ -4,6 +4,10 @@
 __pycache__/
 backups/
 data/
+deploy/.env
+deploy/certs/
+deploy/pgbouncer/pgbouncer.ini
+deploy/pgbouncer/userlist.txt
 dist/
 node_modules/
 reports/

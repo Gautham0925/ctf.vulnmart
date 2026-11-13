@@ -36,26 +36,21 @@ def random_token(n: int = 24) -> str:
 
 
 def _load_or_create_keys():
+    import fcntl
     keys_dir = Path(settings.keys_dir)
     keys_dir.mkdir(parents=True, exist_ok=True)
     priv_path = keys_dir / "training_private.pem"
     pub_path = keys_dir / "training_public.pem"
-    if not priv_path.exists() or not pub_path.exists():
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        priv_path.write_bytes(
-            key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.NoEncryption(),
-            )
-        )
-        pub_path.write_bytes(
-            key.public_key().public_bytes(
-                serialization.Encoding.PEM,
-                serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
-        )
-    return priv_path.read_bytes(), pub_path.read_bytes()
+    with open(keys_dir / ".keys.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not priv_path.exists() or not pub_path.exists():
+            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            tmp_priv, tmp_pub = keys_dir / ".priv.tmp", keys_dir / ".pub.tmp"
+            tmp_priv.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+            tmp_pub.write_bytes(key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
+            tmp_pub.replace(pub_path)
+            tmp_priv.replace(priv_path)
+        return priv_path.read_bytes(), pub_path.read_bytes()
 
 
 PRIVATE_KEY_PEM, PUBLIC_KEY_PEM = _load_or_create_keys()

@@ -31,8 +31,9 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     local_registration_enabled: bool = True
     ctf_timeout_seconds: float = 2.5
-    db_pool_size: int = 5
-    db_max_overflow: int = 5
+    db_pool_size: int = 12
+    db_max_overflow: int = 12
+    threadpool_size: int = 22
     db_pool_timeout: int = 10
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 

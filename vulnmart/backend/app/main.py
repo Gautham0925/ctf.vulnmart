@@ -19,6 +19,8 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from anyio import to_thread
+    to_thread.current_default_thread_limiter().total_tokens = settings.threadpool_size
     log = logging.getLogger("uvicorn.error")
     app.state.db_error = None
     last = None
