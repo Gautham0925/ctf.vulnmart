@@ -25,20 +25,20 @@ CATEGORIES = [
 ]
 
 SELLERS = [
-    ("techhub", "TechHub Electronics", "techhub@vulnmarket.local", "Priya Raman"),
-    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Arjun Malhotra"),
-    ("homenest", "HomeNest Living", "homenest@vulnmarket.local", "Ananya Rao"),
-    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Vikram Choudhury"),
+    ("techhub", "TechHub Electronics", "techhub@vulnmarket.local", "Priya"),
+    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Arjun"),
+    ("homenest", "HomeNest Living", "homenest@vulnmarket.local", "Ananya"),
+    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Vikram"),
 ]
 
 CUSTOMERS = [
-    ("gautham.shop", "Gautham Nair", "gautham.shop@example.com", False),
-    ("pavan.shop", "Pavan Reddy", "pavan.shop@example.com", False),
-    ("tarun.shop", "Tarun Sharma", "tarun.shop@example.com", False),
-    ("showrya.shop", "Showrya Mukherjee", "showrya.shop@example.com", False),
-    ("rakshith.shop", "Rakshith Chauhan", "rakshith.shop@example.com", False),
-    ("shreya.shop", "Shreya Joshi", "shreya.shop@example.com", False),
-    ("shika.shop", "Shika Gill", "shika.shop@example.com", True),
+    ("gautham.shop", "Gautham", "gautham.shop@example.com", False),
+    ("pavan.shop", "Pavan", "pavan.shop@example.com", False),
+    ("tarun.shop", "Tarun", "tarun.shop@example.com", False),
+    ("showrya.shop", "Showrya", "showrya.shop@example.com", False),
+    ("rakshith.shop", "Rakshith", "rakshith.shop@example.com", False),
+    ("shreya.shop", "Shreya", "shreya.shop@example.com", False),
+    ("shika.shop", "Shika", "shika.shop@example.com", True),
     ("vault.audit", "Vault Audit", "vault.audit@vulnmarket.local", False),
     ("ops.recovery", "Ops Recovery", "ops.recovery@vulnmarket.local", False),
 ]
