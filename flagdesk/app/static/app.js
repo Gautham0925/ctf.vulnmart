@@ -1,3 +1,18 @@
+const VULN_NAMES = {
+  "LAB-01": "Authentication Bypass Through Username Enumeration",
+  "LAB-02": "Password Reset Username Enumeration",
+  "LAB-03": "IDOR - Insecure Direct Object Reference",
+  "LAB-04": "Broken Authentication",
+  "LAB-05": "Vertical Privilege Escalation",
+  "LAB-06": "Horizontal Privilege Escalation",
+  "LAB-07": "Reflected Cross-Site Scripting",
+  "LAB-08": "Stored Cross-Site Scripting",
+  "LAB-09": "DOM-Based Cross-Site Scripting",
+  "LAB-10": "SQL Injection - Single Vulnerable Field",
+  "LAB-11": "JWT Key Confusion Attack",
+  "LAB-12": "Half-Open Authentication / Partial Authentication Bypass",
+};
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -105,6 +120,7 @@ function renderChallenges() {
     <div class="col-md-6 col-lg-4"><div class="card chal ${c.solved ? "solved" : ""}" data-id="${esc(c.id)}"><div class="card-body">
       <div class="d-flex justify-content-between mb-2"><span class="mono small text-accent">${esc(c.id)}</span>${c.solved ? '<span class="badge text-bg-success"><i class="bi bi-check-lg"></i> Solved</span>' : `<span class="mono small text-secondary">${c.points} pts</span>`}</div>
       <h5 class="card-title">${esc(c.title)}</h5>
+      <div class="vuln-name">${esc(VULN_NAMES[c.id] || "")}</div>
       <div class="d-flex justify-content-between align-items-center mt-3"><span class="badge text-bg-secondary">${esc(c.category)}</span><span class="small text-secondary"><i class="bi bi-people me-1"></i>${c.solve_count}</span></div>
     </div></div></div>`).join("");
 }
@@ -119,6 +135,7 @@ function openChallenge(id) {
   $("#m-points").textContent = `${c.points} pts`;
   $("#m-solves").textContent = `${c.solve_count} solves`;
   $("#m-desc").textContent = c.description;
+  $("#m-vuln").textContent = VULN_NAMES[c.id] ? `Topic: ${VULN_NAMES[c.id]}` : "";
   $("#m-flag").value = "";
   $("#m-flag").disabled = c.solved;
   $("#m-submit").disabled = c.solved;
