@@ -477,6 +477,7 @@ def admin_reset(body: ResetIn, request: Request, o: Principal = Depends(require_
         "announcements": db.query(Announcement).delete(synchronize_session=False),
         "wordlists_hidden": db.query(Resource).update({Resource.released_labs: [], Resource.released_at: None}, synchronize_session=False),
         "flags_rotated": db.query(FlagState).update({FlagState.version: FlagState.version + 1, FlagState.revoked: False, FlagState.updated_at: now()}, synchronize_session=False),
+        "users_deleted": db.query(Participant).filter(Participant.role != "organizer").delete(synchronize_session=False),
     }
     ev = db.get(Event, config.EVENT_ID)
     if ev:
