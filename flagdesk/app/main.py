@@ -441,4 +441,4 @@ def index():
     return FileResponse(os.path.join(STATIC, "index.html"))
 
 
-app.mount("/", StaticFiles(directory=STATIC), name="static")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")

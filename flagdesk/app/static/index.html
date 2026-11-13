@@ -15,7 +15,7 @@
 <ul class="navbar-nav me-auto flex-row gap-3" id="tabs" hidden>
 <li class="nav-item"><a class="nav-link" data-tab="challenges" href="#challenges">Challenges</a></li>
 <li class="nav-item"><a class="nav-link" data-tab="scoreboard" href="#scoreboard">Scoreboard</a></li>
-<li class="nav-item" id="admin-tab" hidden><a class="nav-link" data-tab="admin" href="#admin">Admin</a></li>
+<li class="nav-item" id="admin-tab" hidden><a class="nav-link" data-tab="admin" href="#admin">Organizer</a></li>
 </ul>
 <div class="d-flex align-items-center gap-3" id="userbox" hidden>
 <span class="badge text-bg-dark border border-secondary-subtle fs-6 mono" id="score-badge"></span>
@@ -34,7 +34,7 @@
 </ul>
 <form id="auth-form" autocomplete="on">
 <div class="mb-3"><label class="form-label">Username</label><input class="form-control" id="f-user" name="username" minlength="3" maxlength="32" required autocomplete="username"></div>
-<div class="mb-3"><label class="form-label">Password</label><input class="form-control" id="f-pass" name="password" type="password" minlength="1" required autocomplete="current-password"></div>
+<div class="mb-3"><label class="form-label">Password</label><input class="form-control" id="f-pass" name="password" type="password" required autocomplete="current-password"></div>
 <div class="mb-3" id="code-row" hidden><label class="form-label">Event code</label><input class="form-control" id="f-code" name="code"></div>
 <div class="alert alert-danger py-2" id="auth-error" hidden></div>
 <button class="btn btn-accent w-100" id="auth-submit" type="submit">Sign in</button>
@@ -43,29 +43,48 @@
 </div></div>
 </section>
 
+<section id="view-organizer-login" hidden>
+<div class="row justify-content-center"><div class="col-md-6 col-lg-4">
+<div class="card shadow-sm"><div class="card-body p-4">
+<h1 class="h5 mb-3">Organizer sign-in</h1>
+<form id="org-form" autocomplete="off">
+<div class="mb-3"><label class="form-label">Account</label><input class="form-control" id="o-user" required autocomplete="off"></div>
+<div class="mb-3"><label class="form-label">Password</label><input class="form-control" id="o-pass" type="password" required autocomplete="off"></div>
+<div class="mb-3"><label class="form-label">Authenticator code</label><input class="form-control mono" id="o-totp" inputmode="numeric" maxlength="6" required autocomplete="off"></div>
+<div class="alert alert-danger py-2" id="org-error" hidden></div>
+<button class="btn btn-accent w-100" id="org-submit" type="submit">Sign in</button>
+</form>
+</div></div>
+</div></div>
+</section>
+
 <section id="view-challenges" hidden>
 <div class="d-flex flex-wrap justify-content-between align-items-end mb-3 gap-3">
-<div><h1 class="h3 mb-1">Challenges</h1><p class="text-secondary mb-0">Exploit a lab, grab the flag, submit it here.</p></div>
+<div><h1 class="h3 mb-1">Challenges</h1><p class="text-secondary mb-0">Exploit a lab, grab your personal flag, submit it here.</p></div><a class="btn btn-sm btn-accent" id="open-shop" target="_blank" rel="noopener">Open VulnMart</a>
 <div class="progress-wrap"><div class="small text-secondary mb-1" id="progress-label"></div><div class="progress" style="height:8px"><div class="progress-bar bg-accent" id="progress-bar" style="width:0"></div></div></div>
 </div>
 <div class="row g-3" id="challenge-grid"></div>
 </section>
 
 <section id="view-scoreboard" hidden>
-<div class="d-flex justify-content-between align-items-end mb-3"><div><h1 class="h3 mb-1">Scoreboard</h1><p class="text-secondary mb-0">Updates every few seconds.</p></div><span class="small text-secondary" id="board-updated"></span></div>
+<div class="d-flex justify-content-between align-items-end mb-3"><div><h1 class="h3 mb-1">Scoreboard</h1><p class="text-secondary mb-0">Updates every few seconds. <span id="board-count"></span></p></div><span class="small text-secondary" id="board-updated"></span></div>
 <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:80px">Rank</th><th>Player</th><th class="text-end">Solved</th><th class="text-end">Score</th></tr></thead><tbody id="board-body"></tbody></table></div></div>
 </section>
 
 <section id="view-admin" hidden>
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><h1 class="h3 mb-0">Admin</h1>
-<div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="/api/admin/export.csv"><i class="bi bi-download me-1"></i>Export CSV</a><button class="btn btn-sm btn-outline-danger" id="reset-all">Reset all scores</button></div></div>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><h1 class="h3 mb-0">Organizer dashboard</h1>
+<div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="/api/admin/export.csv"><i class="bi bi-download me-1"></i>Export CSV</a></div></div>
 <div class="row g-3 mb-4" id="admin-stats"></div>
 <h2 class="h5">Challenges</h2>
-<div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>ID</th><th>Title</th><th style="width:120px">Points</th><th>Visible</th><th style="width:300px">New flag</th><th></th></tr></thead><tbody id="admin-challenges"></tbody></table></div></div>
-<h2 class="h5">Players</h2>
-<div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Username</th><th class="text-end">Solved</th><th class="text-end">Score</th><th></th></tr></thead><tbody id="admin-users"></tbody></table></div></div>
+<div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>ID</th><th>Title</th><th style="width:120px">Points</th><th>Enabled</th><th>Visible</th><th class="text-end">Solves</th><th></th></tr></thead><tbody id="admin-challenges"></tbody></table></div></div>
+<h2 class="h5">Flag control</h2>
+<div class="card mb-4"><div class="card-body"><form class="row g-2" id="flag-ctl"><div class="col-md-4"><input class="form-control" id="fc-user" placeholder="participant username" required></div><div class="col-md-3"><input class="form-control mono" id="fc-chal" placeholder="LAB-01" required></div><div class="col-md-5 d-flex gap-2"><button class="btn btn-outline-warning" data-a="rotate" type="submit">Rotate flag</button><button class="btn btn-outline-danger" data-a="revoke" type="submit">Revoke flag</button></div></form></div></div>
+<h2 class="h5">Participants</h2>
+<div class="card mb-4"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Username</th><th>Status</th><th class="text-end">Solved</th><th class="text-end">Score</th><th></th></tr></thead><tbody id="admin-users"></tbody></table></div></div>
 <h2 class="h5">Recent submissions</h2>
-<div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Time</th><th>Player</th><th>Lab</th><th>Result</th><th>Submitted</th></tr></thead><tbody id="admin-subs" class="mono"></tbody></table></div></div>
+<div class="card mb-4"><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Time</th><th>Participant</th><th>Challenge</th><th>Outcome</th></tr></thead><tbody id="admin-subs" class="mono"></tbody></table></div></div>
+<h2 class="h5">Audit log</h2>
+<div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Time</th><th>Action</th><th>Target</th></tr></thead><tbody id="admin-audit" class="mono"></tbody></table></div></div>
 </section>
 </main>
 
@@ -75,7 +94,7 @@
 <div class="d-flex gap-2 mb-3"><span class="badge text-bg-secondary" id="m-cat"></span><span class="badge text-bg-dark border border-secondary-subtle mono" id="m-points"></span><span class="badge text-bg-dark border border-secondary-subtle" id="m-solves"></span></div>
 <p id="m-desc"></p>
 <form id="flag-form">
-<div class="input-group"><input class="form-control mono" id="m-flag" placeholder="FLAG{...}" autocomplete="off" spellcheck="false" maxlength="200" required><button class="btn btn-accent" id="m-submit" type="submit">Submit</button></div>
+<div class="input-group"><input class="form-control mono" id="m-flag" placeholder="VULN{...}" autocomplete="off" spellcheck="false" maxlength="200" required><button class="btn btn-accent" id="m-submit" type="submit">Submit</button></div>
 </form>
 <div class="alert mt-3 mb-0" id="m-result" hidden></div>
 </div>

@@ -43,7 +43,7 @@ SSO_PRIVATE_KEY_FILE = os.environ.get("SSO_PRIVATE_KEY_FILE", "")
 SSO_ISSUER = os.environ.get("SSO_ISSUER", "https://ctf.local")
 SESSION_AUDIENCE = "flagdesk"
 SSO_CLIENTS = json.loads(os.environ.get("SSO_CLIENTS", "{}")) or {
-    "vulnmart-shop": {"redirect_uris": ["http://shop.localhost:8081/sso/callback"], "audience": "vulnmart-shop"}
+    "vulnmart-shop": {"redirect_uris": ["http://shop.localhost:8081/api/sso/callback"], "audience": "vulnmart-shop"}
 }
 SHOP_PUBLIC_URL = os.environ.get("SHOP_PUBLIC_URL", "http://shop.localhost:8081")
 SHOP_INTERNAL_URL = os.environ.get("SHOP_INTERNAL_URL", "http://vulnmart:8000")

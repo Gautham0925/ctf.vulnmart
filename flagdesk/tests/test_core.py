@@ -165,7 +165,7 @@ def test_service_auth_required(client):
 
 def test_sso_flow_and_revocation(client):
     c, pid = make_user(client, "ssouser")
-    redirect = "http://shop.localhost:8081/sso/callback"
+    redirect = "http://shop.localhost:8081/api/sso/callback"
     r = c.get("/sso/authorize", params={"client_id": "vulnmart-shop", "redirect_uri": redirect, "state": "xyz"}, follow_redirects=False)
     assert r.status_code == 302 and r.headers["location"].startswith(redirect + "?code=")
     code = re.search(r"code=([^&]+)", r.headers["location"]).group(1)
@@ -197,3 +197,11 @@ def test_disabled_participant_loses_session(client):
     o.post("/api/organizer/login", json={"username": "org.alpha", "password": "Alpha-Pass-12345", "totp": pyotp.TOTP("JBSWY3DPEHPK3PXP").now()}, headers=H)
     assert o.post(f"/api/admin/participants/{pid}/status", json={"status": "disabled"}, headers=H).status_code == 200
     assert c.get("/api/me").status_code == 401
+
+
+def test_static_assets_and_no_legacy_prefix(client):
+    assert client.get("/").status_code == 200
+    js = client.get("/static/app.js")
+    assert js.status_code == 200 and "FLAG{" not in js.text
+    html = client.get("/").text
+    assert "FLAG{" not in html and "VULN{" in html
