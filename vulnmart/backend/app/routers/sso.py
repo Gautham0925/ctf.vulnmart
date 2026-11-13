@@ -79,6 +79,11 @@ def sso_callback(request: Request, code: str = "", state: str = "", db: Session 
     return response
 
 
+@router.get("/config")
+def sso_config():
+    return {"sso_enabled": settings.ctf_enabled, "local_registration": settings.local_registration_enabled, "flagdesk_url": settings.flagdesk_public_url}
+
+
 @router.get("/me")
 def sso_me(request: Request):
     ctx = participant.current(request)

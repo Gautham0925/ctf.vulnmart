@@ -1,5 +1,5 @@
 import { Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/button";
@@ -94,9 +94,20 @@ export function Login() {
     </AuthShell>
   );
 
+  const [cfg, setCfg] = useState<{ sso_enabled: boolean; local_registration: boolean } | null>(null);
+  useEffect(() => { fetch("/api/sso/config").then((r) => r.json()).then(setCfg).catch(() => setCfg(null)); }, []);
+  const [showLocal, setShowLocal] = useState(false);
+  const ssoOn = !!cfg?.sso_enabled;
+
   return (
-    <AuthShell title="Sign in" subtitle="Welcome back. Sign in to continue shopping." footer={<>New to VulnMarket? <Link to="/register" className="font-semibold text-brand-700">Create an account</Link></>}>
-      <form onSubmit={submit} className="space-y-4">
+    <AuthShell title="Sign in" subtitle={ssoOn ? "Use your CTF account to enter the shop." : "Welcome back. Sign in to continue shopping."} footer={cfg && !cfg.local_registration ? <>Accounts are created on the CTF platform.</> : <>New to VulnMarket? <Link to="/register" className="font-semibold text-brand-700">Create an account</Link></>}>
+      {ssoOn && (
+        <div className="mb-5">
+          <a href="/api/sso/login" className="btn-sso block w-full rounded-lg bg-navy-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-navy-800">Sign in with your CTF account</a>
+          <button type="button" onClick={() => setShowLocal(!showLocal)} className="mt-3 w-full text-center text-xs font-medium text-slate-500 hover:text-slate-800">{showLocal ? "Hide" : "Use a training persona instead"}</button>
+        </div>
+      )}
+      <form onSubmit={submit} className={`space-y-4 ${ssoOn && !showLocal ? "hidden" : ""}`}>
         <div><label className="label" htmlFor="username">Username or email</label><input id="username" required autoComplete="username" className="field" value={u} onChange={(e) => setU(e.target.value)} /></div>
         <PasswordField id="password" value={p} onChange={setP} />
         <div className="flex justify-end"><Link to="/forgot-password" className="text-sm font-medium text-brand-700 hover:text-brand-800">Forgot password?</Link></div>

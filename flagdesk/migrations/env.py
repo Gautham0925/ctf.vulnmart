@@ -1,5 +1,8 @@
 import os
 
+os.environ.setdefault("DATABASE_URL", os.environ.get("MIGRATOR_DATABASE_URL", ""))
+os.environ.setdefault("FLAG_SECRET", "x" * 40)
+
 from alembic import context
 from sqlalchemy import create_engine, text
 

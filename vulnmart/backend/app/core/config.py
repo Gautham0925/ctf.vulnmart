@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     partial_ttl_seconds: int = 300
     otp_ttl_seconds: int = 300
     ctf_enabled: bool = False
+    seed_on_start: bool = True
     flagdesk_internal_url: str = "http://flagdesk:8000"
     flagdesk_public_url: str = "http://ctf.localhost:8081"
     flagdesk_service_token: str = ""

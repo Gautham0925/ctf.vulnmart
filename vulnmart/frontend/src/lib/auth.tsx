@@ -24,7 +24,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { setUser(await api<User>("/api/auth/me")); } catch { tokens.clear(); setUser(null); }
   }, []);
 
-  useEffect(() => { refreshUser().finally(() => setLoading(false)); }, [refreshUser]);
+  const bootstrap = useCallback(async () => {
+    if (tokens.access) { await refreshUser(); return; }
+    try {
+      const me = await fetch("/api/sso/me", { credentials: "same-origin" });
+      if (!me.ok) return;
+      const r = await fetch("/api/sso/session", { method: "POST", credentials: "same-origin", headers: { "X-VM": "1" } });
+      if (!r.ok) return;
+      const data = await r.json();
+      tokens.set(data.access_token, data.refresh_token);
+      setUser(data.user);
+    } catch { /* not signed in via CTF */ }
+  }, [refreshUser]);
+
+  useEffect(() => { bootstrap().finally(() => setLoading(false)); }, [bootstrap]);
 
   const login: AuthState["login"] = async (username, password) => {
     const data = await api("/api/auth/login", { body: { username, password }, auth: false });
@@ -43,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try { await api("/api/auth/logout", { method: "POST" }); } catch { /* ignore */ }
+    try { await fetch("/api/sso/logout", { method: "POST", credentials: "same-origin", headers: { "X-VM": "1" } }); } catch { /* ignore */ }
     tokens.clear();
     setUser(null);
   };

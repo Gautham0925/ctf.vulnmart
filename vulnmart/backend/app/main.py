@@ -24,7 +24,8 @@ async def lifespan(app: FastAPI):
     last = None
     for attempt in range(1, 6):
         try:
-            seed.run()
+            if settings.seed_on_start:
+                seed.run()
             last = None
             break
         except Exception as exc:  # keep the web server alive so the real cause is visible

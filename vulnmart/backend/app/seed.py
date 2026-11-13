@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.flags_config import sentinel
@@ -224,8 +225,12 @@ def run(reset: bool = False):
     else:
         Base.metadata.create_all(engine)
     with SessionLocal() as db:
+        if db.bind.dialect.name == "postgresql":
+            db.execute(text("select pg_advisory_xact_lock(727001)"))
         if db.query(User).count() == 0:
             seed(db)
+        else:
+            db.rollback()
 
 
 if __name__ == "__main__":
