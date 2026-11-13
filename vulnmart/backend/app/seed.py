@@ -26,19 +26,19 @@ CATEGORIES = [
 
 SELLERS = [
     ("techhub", "TechHub Electronics", "techhub@vulnmarket.local", "Priya Raman"),
-    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Arjun Menon"),
+    ("stylehouse", "StyleHouse Fashion", "stylehouse@vulnmarket.local", "Arjun Malhotra"),
     ("homenest", "HomeNest Living", "homenest@vulnmarket.local", "Ananya Rao"),
-    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Vikram Shetty"),
+    ("pagebarn", "PageBarn Books", "pagebarn@vulnmarket.local", "Vikram Choudhury"),
 ]
 
 CUSTOMERS = [
-    ("gautham.shop", "Gautham Kini", "gautham.shop@example.com", False),
-    ("pavan.shop", "Pavan Shetty", "pavan.shop@example.com", False),
-    ("tarun.shop", "Tarun Gowda", "tarun.shop@example.com", False),
-    ("showrya.shop", "Showrya Hegde", "showrya.shop@example.com", False),
-    ("rakshith.shop", "Rakshith Bhat", "rakshith.shop@example.com", False),
-    ("shreya.shop", "Shreya Nayak", "shreya.shop@example.com", False),
-    ("shika.shop", "Shika Pai", "shika.shop@example.com", True),
+    ("gautham.shop", "Gautham Nair", "gautham.shop@example.com", False),
+    ("pavan.shop", "Pavan Reddy", "pavan.shop@example.com", False),
+    ("tarun.shop", "Tarun Sharma", "tarun.shop@example.com", False),
+    ("showrya.shop", "Showrya Mukherjee", "showrya.shop@example.com", False),
+    ("rakshith.shop", "Rakshith Chauhan", "rakshith.shop@example.com", False),
+    ("shreya.shop", "Shreya Joshi", "shreya.shop@example.com", False),
+    ("shika.shop", "Shika Gill", "shika.shop@example.com", True),
     ("vault.audit", "Vault Audit", "vault.audit@vulnmarket.local", False),
     ("ops.recovery", "Ops Recovery", "ops.recovery@vulnmarket.local", False),
 ]
@@ -150,26 +150,26 @@ def seed(db: Session):
     db.flush()
 
     homes = [
-        ("No. 42, 3rd Cross, Vijayanagar", "Bengaluru", "Karnataka", "560040"),
-        ("Flat 204, Sai Residency, Hinjewadi Phase 1", "Pune", "Maharashtra", "411057"),
-        ("14/2, Gandhi Road, Kodialbail", "Mangaluru", "Karnataka", "575003"),
-        ("No. 7, 5th Main, Jayanagar 4th Block", "Bengaluru", "Karnataka", "560011"),
+        ("Flat 302, Lotus Apartments, Sector 21, Dwarka", "New Delhi", "Delhi", "110075"),
+        ("14, Anna Salai Cross Street, T. Nagar", "Chennai", "Tamil Nadu", "600017"),
+        ("B-45, Salt Lake Sector 3", "Kolkata", "West Bengal", "700106"),
         ("Plot 31, Road No. 5, Banjara Hills", "Hyderabad", "Telangana", "500034"),
-        ("12, Lakshmi Nagar, Adyar", "Chennai", "Tamil Nadu", "600020"),
-        ("TC 25/1138, Pallam Road", "Kasaragod", "Kerala", "671121"),
-        ("No. 88, 80 Feet Road, Koramangala", "Bengaluru", "Karnataka", "560034"),
-        ("B-12, Shivaji Park Society, Dadar", "Mumbai", "Maharashtra", "400028"),
+        ("B-12, Shivaji Park Society, Dadar West", "Mumbai", "Maharashtra", "400028"),
+        ("22, C-Scheme, Ashok Marg", "Jaipur", "Rajasthan", "302001"),
+        ("A-9, Satellite Road, Vastrapur", "Ahmedabad", "Gujarat", "380015"),
+        ("House 118, Sector 22-A", "Chandigarh", "Chandigarh", "160022"),
+        ("37, Gomti Nagar Extension", "Lucknow", "Uttar Pradesh", "226010"),
     ]
     offices = [
-        ("Prestige Tech Park, Outer Ring Road, Marathahalli", "Bengaluru", "Karnataka", "560103"),
-        ("Magarpatta City, Hadapsar", "Pune", "Maharashtra", "411013"),
-        ("KIADB Industrial Area, Bikkernakatte", "Mangaluru", "Karnataka", "575002"),
-        ("Embassy Manyata Business Park, Nagawara", "Bengaluru", "Karnataka", "560045"),
-        ("Raheja Mindspace, HITEC City, Madhapur", "Hyderabad", "Telangana", "500081"),
+        ("DLF Cyber City, Phase 2", "Gurugram", "Haryana", "122002"),
         ("DLF IT Park, Manapakkam", "Chennai", "Tamil Nadu", "600089"),
-        ("Infopark Phase 1, Kakkanad", "Kochi", "Kerala", "682042"),
-        ("Bagmane Tech Park, CV Raman Nagar", "Bengaluru", "Karnataka", "560093"),
+        ("Infinity Tower, Sector 5, Salt Lake", "Kolkata", "West Bengal", "700091"),
+        ("Raheja Mindspace, HITEC City, Madhapur", "Hyderabad", "Telangana", "500081"),
         ("Bandra Kurla Complex, Bandra East", "Mumbai", "Maharashtra", "400051"),
+        ("Mahindra World City, Ajmer Road", "Jaipur", "Rajasthan", "302037"),
+        ("GIFT City, Gandhinagar", "Gandhinagar", "Gujarat", "382355"),
+        ("Rajiv Gandhi Chandigarh Technology Park", "Chandigarh", "Chandigarh", "160101"),
+        ("Magarpatta City, Hadapsar", "Pune", "Maharashtra", "411013"),
     ]
     for i, (username, fullname, _e, _m) in enumerate(CUSTOMERS):
         user = users[username]
