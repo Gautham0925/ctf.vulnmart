@@ -73,6 +73,21 @@ class Participant(HttpUser):
     def vm_auth(self):
         return {"Authorization": f"Bearer {self.access}"}
 
+    def renew_tokens(self):
+        with self.vm.post("/api/sso/session", headers={"x-vm": "1"}, name="VM sso/session renew", catch_response=True) as r:
+            if r.status_code == 200:
+                data = r.json()
+                self.access, self.refresh = data["access_token"], data["refresh_token"]
+            else:
+                r.failure(f"renew {r.status_code}")
+
+    def vm_get_auth(self, path, name):
+        with self.vm.get(path, headers=self.vm_auth(), name=name, catch_response=True) as r:
+            if r.status_code == 401:
+                r.success()
+                self.renew_tokens()
+                return self.vm.get(path, headers=self.vm_auth(), name=name)
+
     def browse_shop(self):
         if not self.ready:
             return
@@ -86,7 +101,7 @@ class Participant(HttpUser):
         elif pick < 0.9:
             self.vm.get(f"/api/products/{random.randint(1, 37)}", name="VM product detail")
         else:
-            self.vm.get("/api/orders", headers=self.vm_auth(), name="VM my orders")
+            self.vm_get_auth("/api/orders", "VM my orders")
 
     def leaderboard(self):
         if self.ready:
@@ -190,7 +205,7 @@ class VulnMartOnlyUser(Participant):
     @task(1)
     def labs(self):
         if self.ready:
-            self.vm.get("/api/labs", headers=self.vm_auth(), name="VM labs")
+            self.vm_get_auth("/api/labs", "VM labs")
 
 
 class FlagDeskOnlyUser(Participant):

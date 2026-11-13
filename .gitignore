@@ -11,3 +11,4 @@ deploy/pgbouncer/userlist.txt
 dist/
 node_modules/
 reports/
+dump.rdb
