@@ -26,8 +26,10 @@ def main():
         for _, (role, pw_env) in ROLES.items():
             pw = os.environ[pw_env]
             exists = conn.execute("select 1 from pg_roles where rolname=%s", (role,)).fetchone()
-            verb = "ALTER" if exists else "CREATE"
-            conn.execute(sql.SQL(verb + " ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD {}").format(sql.Identifier(role), sql.Literal(pw)))
+            if exists:
+                conn.execute(sql.SQL("ALTER ROLE {} LOGIN PASSWORD {}").format(sql.Identifier(role), sql.Literal(pw)))
+            else:
+                conn.execute(sql.SQL("CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD {}").format(sql.Identifier(role), sql.Literal(pw)))
         if args.create_database:
             if not conn.execute("select 1 from pg_database where datname=%s", (db,)).fetchone():
                 conn.execute(sql.SQL("CREATE DATABASE {} OWNER ctf_migrator").format(sql.Identifier(db)))
@@ -40,6 +42,7 @@ def main():
             except Exception:
                 pass
         conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO ctf_migrator, flagdesk_app, vulnmart_app").format(sql.Identifier(db)))
+        conn.execute(sql.SQL("GRANT CREATE ON DATABASE {} TO ctf_migrator").format(sql.Identifier(db)))
         if args.revoke_public_connect:
             conn.execute(sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC").format(sql.Identifier(db)))
             conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO ctf_migrator, flagdesk_app, vulnmart_app").format(sql.Identifier(db)))
